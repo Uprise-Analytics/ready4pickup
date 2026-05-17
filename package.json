@@ -1,0 +1,22 @@
+{
+  "name": "ready4pickup",
+  "private": true,
+  "workspaces": ["apps/mobile", "apps/web"],
+  "scripts": {
+    "mobile": "yarn workspace @ready4pickup/mobile start",
+    "mobile:ios": "yarn workspace @ready4pickup/mobile ios",
+    "mobile:android": "yarn workspace @ready4pickup/mobile android",
+    "mobile:build:ios": "yarn workspace @ready4pickup/mobile build:ios",
+    "mobile:build:android": "yarn workspace @ready4pickup/mobile build:android",
+    "web": "yarn workspace @ready4pickup/web dev",
+    "web:build": "yarn workspace @ready4pickup/web build",
+    "web:type-check": "yarn workspace @ready4pickup/web type-check"
+  },
+  "devDependencies": {
+    "typescript": "^5.4.5"
+  },
+  "packageManager": "yarn@4.2.2",
+  "engines": {
+    "node": ">=18.0.0"
+  }
+}
