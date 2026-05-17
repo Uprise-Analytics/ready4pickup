@@ -11,7 +11,7 @@ import { Label } from '@components/ui/label'
 import { Separator } from '@components/ui/separator'
 import { toast } from 'sonner'
 import { Settings, Palette, User, Bell, School, Check } from 'lucide-react'
-import type { NotificationPreferences } from '@/types/database'
+import type { Profile, NotificationPreferences } from '@/types/database'
 
 const TABS = ['Appearance', 'Profile', 'Notifications', 'School'] as const
 type Tab = typeof TABS[number]
@@ -159,7 +159,7 @@ function AppearanceTab({ accent, setAccent }: { accent: string; setAccent: (a: a
 
 // ─── Profile ─────────────────────────────────────────────────────────────────
 
-function ProfileTab({ profile, onSaved }: { profile: NonNullable<ReturnType<typeof useAuthStore>['profile']>; onSaved: () => Promise<void> }) {
+function ProfileTab({ profile, onSaved }: { profile: Profile; onSaved: () => Promise<void> }) {
   const [fullName, setFullName] = useState(profile.full_name)
   const [phone, setPhone] = useState(profile.phone ?? '')
   const { mutateAsync: updateUser, isPending } = useUpdateUser()
@@ -214,7 +214,7 @@ function ProfileTab({ profile, onSaved }: { profile: NonNullable<ReturnType<type
 
 // ─── Notifications ────────────────────────────────────────────────────────────
 
-function NotificationsTab({ profile, onSaved }: { profile: NonNullable<ReturnType<typeof useAuthStore>['profile']>; onSaved: () => Promise<void> }) {
+function NotificationsTab({ profile, onSaved }: { profile: Profile; onSaved: () => Promise<void> }) {
   const [prefs, setPrefs] = useState<NotificationPreferences>({ ...profile.notification_prefs })
   const { mutateAsync: updateUser, isPending } = useUpdateUser()
 
