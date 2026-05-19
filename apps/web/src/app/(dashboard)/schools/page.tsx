@@ -1,16 +1,28 @@
 'use client'
 
-import { useState } from 'react'
-import { useAllSchools } from '@hooks/useAdmin'
+import { useState, useMemo } from 'react'
+import { useAllSchools, useAllUsers } from '@hooks/useAdmin'
 import { SchoolsTable } from '@components/schools/SchoolsTable'
 import { CreateSchoolDialog } from '@components/schools/CreateSchoolDialog'
 import { Button } from '@components/ui/button'
 import { Skeleton } from '@components/ui/skeleton'
 import { School, Plus } from 'lucide-react'
+import type { Profile } from '@/types/database'
 
 export default function SchoolsPage() {
   const [dialogOpen, setDialogOpen] = useState(false)
   const { data: schools = [], isLoading } = useAllSchools()
+  const { data: admins = [] } = useAllUsers({ role: 'school_admin' })
+
+  const adminsBySchoolId = useMemo(() => {
+    const map = new Map<string, Profile[]>()
+    for (const admin of admins) {
+      if (!admin.school_id || !admin.is_active) continue
+      if (!map.has(admin.school_id)) map.set(admin.school_id, [])
+      map.get(admin.school_id)!.push(admin)
+    }
+    return map
+  }, [admins])
 
   return (
     <div className="space-y-6">
@@ -30,7 +42,10 @@ export default function SchoolsPage() {
         </Button>
       </div>
 
-      {isLoading ? <Skeleton className="h-64 w-full" /> : <SchoolsTable schools={schools} />}
+      {isLoading
+        ? <Skeleton className="h-64 w-full" />
+        : <SchoolsTable schools={schools} adminsBySchoolId={adminsBySchoolId} />
+      }
 
       <CreateSchoolDialog open={dialogOpen} onOpenChange={setDialogOpen} />
     </div>
