@@ -2,18 +2,14 @@
 
 import { use, useState, useMemo } from 'react'
 import Link from 'next/link'
-import { useSchoolDetail, useAllUsers, useUpdateSchool, useUpdateUserRole, useDeactivateUser } from '@hooks/useAdmin'
+import { useSchoolDetail, useAllUsers, useUpdateSchool, useUpdateUserRole } from '@hooks/useAdmin'
 import { StatCard } from '@components/dashboard/StatCard'
 import { EditSchoolDialog } from '@components/schools/EditSchoolDialog'
 import { AssignAdminDialog } from '@components/schools/AssignAdminDialog'
 import { Skeleton } from '@components/ui/skeleton'
 import { Badge } from '@components/ui/badge'
 import { Button } from '@components/ui/button'
-import { Input } from '@components/ui/input'
 import { Switch } from '@components/ui/switch'
-import {
-  Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
-} from '@components/ui/select'
 import {
   AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
   AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
@@ -22,22 +18,9 @@ import { toast } from 'sonner'
 import { getInitials, getAvatarColor, formatDate } from '@utils/format'
 import {
   ArrowLeft, MapPin, Phone, Mail, Users, UserCog,
-  AlertTriangle, Search, Pencil,
+  AlertTriangle, Pencil,
 } from 'lucide-react'
 import type { UserRole, Profile } from '@/types/database'
-
-type MemberFilter = 'all' | 'school_admin' | 'teacher' | 'parent' | 'collector'
-
-const ROLE_COLORS: Record<string, string> = {
-  school_admin: 'bg-purple-50 text-purple-700 border-purple-200',
-  teacher:      'bg-blue-50 text-blue-700 border-blue-200',
-  parent:       'bg-green-50 text-green-700 border-green-200',
-  collector:    'bg-amber-50 text-amber-700 border-amber-200',
-}
-
-const ROLE_SORT: Record<string, number> = {
-  school_admin: 0, teacher: 1, parent: 2, collector: 3,
-}
 
 export default function SchoolDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = use(params)
@@ -50,21 +33,8 @@ export default function SchoolDetailPage({ params }: { params: Promise<{ id: str
   const [editOpen, setEditOpen] = useState(false)
   const [assignOpen, setAssignOpen] = useState(false)
   const [removeAdmin, setRemoveAdmin] = useState<Profile | null>(null)
-  const [memberSearch, setMemberSearch] = useState('')
-  const [memberFilter, setMemberFilter] = useState<MemberFilter>('all')
 
   const admins = useMemo(() => users.filter(u => u.role === 'school_admin'), [users])
-
-  const filteredMembers = useMemo(() => {
-    let list = [...users]
-    if (memberFilter !== 'all') list = list.filter(u => u.role === memberFilter)
-    if (memberSearch) list = list.filter(u =>
-      u.full_name.toLowerCase().includes(memberSearch.toLowerCase()) ||
-      u.email.toLowerCase().includes(memberSearch.toLowerCase())
-    )
-    list.sort((a, b) => (ROLE_SORT[a.role] ?? 9) - (ROLE_SORT[b.role] ?? 9))
-    return list
-  }, [users, memberFilter, memberSearch])
 
   async function handleToggleSchoolActive(checked: boolean) {
     try {
@@ -72,24 +42,6 @@ export default function SchoolDetailPage({ params }: { params: Promise<{ id: str
       toast.success(checked ? 'School activated' : 'School deactivated')
     } catch {
       toast.error('Failed to update school')
-    }
-  }
-
-  async function handleRoleChange(userId: string, role: UserRole) {
-    try {
-      await updateRole({ userId, role, schoolId: id })
-      toast.success('Role updated')
-    } catch {
-      toast.error('Failed to update role')
-    }
-  }
-
-  async function handleToggleMemberActive(user: Profile) {
-    try {
-      await deactivateUser({ userId: user.id, isActive: !user.is_active })
-      toast.success(user.is_active ? 'Member deactivated' : 'Member activated')
-    } catch {
-      toast.error('Failed to update member')
     }
   }
 
@@ -204,87 +156,6 @@ export default function SchoolDetailPage({ params }: { params: Promise<{ id: str
                   >
                     Remove Admin
                   </Button>
-                </div>
-              )
-            })}
-          </div>
-        )}
-      </div>
-
-      {/* All Members */}
-      <div className="bg-white rounded-xl border border-slate-200">
-        <div className="px-5 py-4 border-b border-slate-100">
-          <div className="flex items-center justify-between gap-3 flex-wrap">
-            <h2 className="text-sm font-semibold text-slate-800">
-              Members <span className="text-slate-400 font-normal">({users.length})</span>
-            </h2>
-            <div className="flex items-center gap-2">
-              <div className="relative">
-                <Search size={13} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-slate-400" />
-                <Input
-                  className="pl-7 h-7 text-xs w-48"
-                  placeholder="Search members..."
-                  value={memberSearch}
-                  onChange={(e) => setMemberSearch(e.target.value)}
-                />
-              </div>
-              <Select value={memberFilter} onValueChange={(v) => setMemberFilter(v as MemberFilter)}>
-                <SelectTrigger className="h-7 text-xs w-32"><SelectValue /></SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">All Roles</SelectItem>
-                  <SelectItem value="school_admin">Admins</SelectItem>
-                  <SelectItem value="teacher">Teachers</SelectItem>
-                  <SelectItem value="parent">Parents</SelectItem>
-                  <SelectItem value="collector">Collectors</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-          </div>
-        </div>
-
-        {usersLoading ? (
-          <div className="p-4 space-y-3">{[1,2,3].map(i => <Skeleton key={i} className="h-10 w-full" />)}</div>
-        ) : filteredMembers.length === 0 ? (
-          <p className="text-center text-slate-400 py-8 text-sm">No members found</p>
-        ) : (
-          <div className="divide-y divide-slate-100">
-            {filteredMembers.map(user => {
-              const initials = getInitials(user.full_name)
-              const avatarColor = getAvatarColor(user.full_name)
-              return (
-                <div key={user.id} className="flex items-center gap-3 px-5 py-3">
-                  {user.avatar_url ? (
-                    <img src={user.avatar_url} alt={user.full_name} className="w-8 h-8 rounded-full object-cover flex-shrink-0" />
-                  ) : (
-                    <div className="w-8 h-8 rounded-full flex items-center justify-center text-white text-xs font-bold flex-shrink-0" style={{ backgroundColor: avatarColor }}>
-                      {initials}
-                    </div>
-                  )}
-                  <div className="flex-1 min-w-0">
-                    <p className="text-sm font-medium text-slate-800 truncate">{user.full_name}</p>
-                    <p className="text-xs text-slate-400 truncate">{user.email}</p>
-                  </div>
-                  <div className="flex items-center gap-3 flex-shrink-0">
-                    <Badge variant="outline" className={`text-xs ${ROLE_COLORS[user.role] ?? 'text-slate-500'}`}>
-                      {user.role.replace('_', ' ')}
-                    </Badge>
-                    <Select defaultValue={user.role} onValueChange={(v) => handleRoleChange(user.id, v as UserRole)}>
-                      <SelectTrigger className="h-7 text-xs w-32"><SelectValue /></SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="school_admin">School Admin</SelectItem>
-                        <SelectItem value="teacher">Teacher</SelectItem>
-                        <SelectItem value="parent">Parent</SelectItem>
-                        <SelectItem value="collector">Collector</SelectItem>
-                      </SelectContent>
-                    </Select>
-                    <div className="flex items-center gap-1.5">
-                      <Switch
-                        checked={user.is_active}
-                        onCheckedChange={() => handleToggleMemberActive(user)}
-                      />
-                      <span className="text-xs text-slate-400">{user.is_active ? 'Active' : 'Off'}</span>
-                    </div>
-                  </div>
                 </div>
               )
             })}
