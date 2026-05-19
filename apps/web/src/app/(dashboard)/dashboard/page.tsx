@@ -6,7 +6,7 @@ import { usePlatformStats } from '@hooks/useAdmin'
 import { StatCard } from '@components/dashboard/StatCard'
 import {
   Baby, Users, AlertTriangle, School,
-  UserCheck, LogIn, UserCog,
+  UserCheck, LogIn, UserCog, Truck,
 } from 'lucide-react'
 
 export default function DashboardPage() {
