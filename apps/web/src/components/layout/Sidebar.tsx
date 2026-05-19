@@ -7,7 +7,7 @@ import { useThemeStore } from '@store/theme.store'
 import { getInitials, getAvatarColor } from '@utils/format'
 import {
   LayoutDashboard, Truck, AlertTriangle, Users, Baby,
-  History, School, UserCog, Megaphone,
+  History, School, Megaphone,
 } from 'lucide-react'
 
 const ROLE_LABELS: Record<string, string> = {
@@ -24,14 +24,13 @@ interface NavItem {
 
 const NAV_ITEMS: NavItem[] = [
   { href: '/dashboard',     label: 'Dashboard',      icon: <LayoutDashboard size={18} />, roles: ['school_admin', 'platform_owner'] },
-  { href: '/pickups',       label: 'Live Pickups',   icon: <Truck size={18} />,           roles: ['school_admin', 'platform_owner'] },
+  { href: '/pickups',       label: 'Live Pickups',   icon: <Truck size={18} />,           roles: ['school_admin'] },
   { href: '/incidents',     label: 'Incidents',      icon: <AlertTriangle size={18} />,   roles: ['school_admin', 'platform_owner'] },
   { href: '/people',        label: 'People',         icon: <Users size={18} />,           roles: ['school_admin'] },
   { href: '/children',      label: 'Children',       icon: <Baby size={18} />,            roles: ['school_admin'] },
   { href: '/history',       label: 'Pickup History', icon: <History size={18} />,         roles: ['school_admin'] },
   { href: '/announcements', label: 'Announcements',  icon: <Megaphone size={18} />,       roles: ['school_admin'] },
   { href: '/schools',       label: 'Schools',        icon: <School size={18} />,          roles: ['platform_owner'] },
-  { href: '/users',         label: 'All Users',      icon: <UserCog size={18} />,         roles: ['platform_owner'] },
 ]
 
 export function Sidebar() {

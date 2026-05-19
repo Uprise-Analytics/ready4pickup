@@ -5,7 +5,7 @@ import { useSchoolStats } from '@hooks/useSchoolAdmin'
 import { usePlatformStats } from '@hooks/useAdmin'
 import { StatCard } from '@components/dashboard/StatCard'
 import {
-  Baby, Users, Truck, AlertTriangle, School,
+  Baby, Users, AlertTriangle, School,
   UserCheck, LogIn, UserCog,
 } from 'lucide-react'
 
@@ -51,21 +51,20 @@ function PlatformDashboard() {
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="text-2xl font-bold text-slate-900">Platform Dashboard</h1>
-        <p className="text-sm text-slate-500 mt-1">Platform-wide overview</p>
-      </div>
-
-      <div className="grid grid-cols-2 xl:grid-cols-4 gap-4">
-        <StatCard label="Total Schools"   value={data?.totalSchools}        icon={School}        color="blue"   isLoading={isLoading} />
-        <StatCard label="Active Schools"  value={data?.activeSchools}       icon={School}        color="green"  isLoading={isLoading} />
-        <StatCard label="Total Users"     value={data?.totalUsers}          icon={Users}         color="purple" isLoading={isLoading} />
-        <StatCard label="Live Pickups"    value={data?.activePickupsToday}  icon={Truck}         color="amber"  isLoading={isLoading} />
+        <h1 className="text-2xl font-bold text-slate-900">Platform Overview</h1>
+        <p className="text-sm text-slate-500 mt-1">High-level stats across all schools</p>
       </div>
 
       <div className="grid grid-cols-2 xl:grid-cols-3 gap-4">
-        <StatCard label="Teachers"   value={data?.teachers}   icon={UserCog}       color="slate" isLoading={isLoading} />
-        <StatCard label="Parents"    value={data?.parents}    icon={Users}         color="blue"  isLoading={isLoading} />
-        <StatCard label="Collectors" value={data?.collectors} icon={AlertTriangle} color="red"   isLoading={isLoading} />
+        <StatCard label="Total Schools"  value={data?.totalSchools}  icon={School}   color="blue"   isLoading={isLoading} />
+        <StatCard label="Active Schools" value={data?.activeSchools} icon={School}   color="green"  isLoading={isLoading} />
+        <StatCard label="Total Users"    value={data?.totalUsers}    icon={Users}    color="purple" isLoading={isLoading} />
+      </div>
+
+      <div className="grid grid-cols-2 xl:grid-cols-3 gap-4">
+        <StatCard label="School Admins" value={data?.admins}     icon={UserCog}       color="slate" isLoading={isLoading} />
+        <StatCard label="Teachers"      value={data?.teachers}   icon={UserCog}       color="blue"  isLoading={isLoading} />
+        <StatCard label="Parents"       value={data?.parents}    icon={Users}         color="green" isLoading={isLoading} />
       </div>
     </div>
   )

@@ -91,6 +91,7 @@ export function usePlatformStats() {
         totalSchools: schools.length,
         activeSchools: schools.filter((s) => s.is_active).length,
         totalUsers: profiles.length,
+        admins: profiles.filter((p) => p.role === 'school_admin').length,
         teachers: profiles.filter((p) => p.role === 'teacher').length,
         parents: profiles.filter((p) => p.role === 'parent').length,
         collectors: profiles.filter((p) => p.role === 'collector').length,
@@ -131,6 +132,20 @@ export function useCreateSchool() {
         .single()
       if (error) throw error
       return data as School
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: queryKeys.schools.all })
+      qc.invalidateQueries({ queryKey: queryKeys.admin.stats })
+    },
+  })
+}
+
+export function useDeleteSchool() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: async (id: string) => {
+      const { error } = await db.schools().delete().eq('id', id)
+      if (error) throw error
     },
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: queryKeys.schools.all })
