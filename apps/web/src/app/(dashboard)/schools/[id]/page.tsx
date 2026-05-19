@@ -28,7 +28,6 @@ export default function SchoolDetailPage({ params }: { params: Promise<{ id: str
   const { data: users = [], isLoading: usersLoading } = useAllUsers({ schoolId: id })
   const { mutateAsync: updateSchool, isPending: togglingSchool } = useUpdateSchool()
   const { mutateAsync: updateRole } = useUpdateUserRole()
-  const { mutateAsync: deactivateUser } = useDeactivateUser()
 
   const [editOpen, setEditOpen] = useState(false)
   const [assignOpen, setAssignOpen] = useState(false)
