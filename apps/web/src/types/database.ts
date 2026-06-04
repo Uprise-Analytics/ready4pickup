@@ -3,6 +3,29 @@
 // -------------------------------------------------------
 
 export type UserRole = 'platform_owner' | 'school_admin' | 'teacher' | 'parent' | 'collector'
+export type StockLevel = 'n/a' | 'low' | 'medium' | 'high'
+
+export interface ConsumableType {
+  id: string
+  school_id: string
+  classroom_id: string | null
+  name: string
+  emoji: string
+  created_by: string | null
+  is_active: boolean
+  created_at: string
+  updated_at: string
+}
+
+export interface ChildConsumableStock {
+  id: string
+  child_id: string
+  school_id: string
+  consumable_type_id: string
+  stock_level: StockLevel
+  updated_by: string | null
+  updated_at: string
+}
 export type PickupStatus = 'on_the_way' | 'arrived' | 'preparing' | 'completed' | 'cancelled' | 'expired'
 export type CheckinStatus = 'present' | 'absent' | 'early_departure' | 'picked_up'
 export type NoteType = 'general' | 'medical' | 'behavioral' | 'achievement'
@@ -464,4 +487,71 @@ export type Database = {
       permission_status: PermissionStatus
     }
   }
+}
+
+// -------------------------------------------------------
+// Inventory
+// -------------------------------------------------------
+
+export type InventoryCategory = 'furniture' | 'equipment' | 'book' | 'toy' | 'art_supply' | 'other'
+export type InventoryCondition = 'good' | 'fair' | 'damaged'
+export type StockTakeCondition = 'good' | 'fair' | 'damaged' | 'missing'
+export type InventoryEventType = 'damage' | 'transfer' | 'home_item' | 'replenishment'
+export type InventoryEventStatus = 'pending' | 'approved' | 'rejected'
+export type StockTakeStatus = 'submitted' | 'reviewed'
+
+export interface InventoryItem {
+  id: string
+  school_id: string
+  classroom_id: string | null
+  name: string
+  category: InventoryCategory
+  serial_number: string | null
+  quantity: number
+  condition: InventoryCondition
+  is_consumable: boolean
+  notes: string | null
+  assigned_by: string | null
+  is_active: boolean
+  created_at: string
+  updated_at: string
+}
+
+export interface InventoryEvent {
+  id: string
+  school_id: string
+  item_id: string | null
+  classroom_id: string | null
+  event_type: InventoryEventType
+  description: string | null
+  qty: number
+  target_classroom_id: string | null
+  reported_by: string | null
+  status: InventoryEventStatus
+  reviewed_by: string | null
+  reviewed_at: string | null
+  created_at: string
+}
+
+export interface StockTake {
+  id: string
+  school_id: string
+  classroom_id: string
+  submitted_by: string
+  status: StockTakeStatus
+  notes: string | null
+  reviewed_by: string | null
+  reviewed_at: string | null
+  submitted_at: string
+  created_at: string
+}
+
+export interface StockTakeItem {
+  id: string
+  stock_take_id: string
+  item_id: string
+  expected_qty: number
+  actual_qty: number
+  condition: StockTakeCondition
+  notes: string | null
 }

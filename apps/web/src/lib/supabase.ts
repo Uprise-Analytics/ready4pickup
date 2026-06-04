@@ -47,6 +47,12 @@ export const db = {
   teacherClassroomAssignments: () => supabase.from('teacher_classroom_assignments'),
   diaperChanges: () => supabase.from('diaper_changes'),
   bottleLogs: () => supabase.from('bottle_logs'),
+  consumableTypes: () => supabase.from('consumable_types'),
+  childConsumableStock: () => supabase.from('child_consumable_stock'),
+  inventoryItems: () => supabase.from('inventory_items'),
+  inventoryEvents: () => supabase.from('inventory_events'),
+  stockTakes: () => supabase.from('stock_takes'),
+  stockTakeItems: () => supabase.from('stock_take_items'),
 }
 
 // -------------------------------------------------------
@@ -116,6 +122,8 @@ export const rpc = {
       p_blocked_by: blockedBy,
       p_reason: reason ?? null,
     }),
+
+  getMyClassroomIds: () => supabase.rpc('get_my_classroom_ids'),
 
   authorizeCollector: (params: {
     childId: string

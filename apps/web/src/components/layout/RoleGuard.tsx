@@ -11,7 +11,8 @@ export function RoleGuard({ children }: { children: React.ReactNode }) {
   useEffect(() => {
     if (!isInitialized) return
     if (!session) { router.replace('/login'); return }
-    if (profile && profile.role !== 'school_admin' && profile.role !== 'platform_owner') {
+    const allowed = ['school_admin', 'platform_owner', 'teacher']
+    if (profile && !allowed.includes(profile.role)) {
       router.replace('/login')
     }
   }, [isInitialized, session, profile, router])
@@ -30,7 +31,7 @@ export function RoleGuard({ children }: { children: React.ReactNode }) {
 
   if (!session || !profile) return null
 
-  if (profile.role !== 'school_admin' && profile.role !== 'platform_owner') return null
+  if (!['school_admin', 'platform_owner', 'teacher'].includes(profile.role)) return null
 
   return <>{children}</>
 }

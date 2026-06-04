@@ -51,7 +51,7 @@ export default function LoginPage() {
             <span className="text-white text-2xl font-bold">R4</span>
           </div>
           <h1 className="text-2xl font-bold text-slate-900">Ready4Pickup</h1>
-          <p className="text-slate-500 text-sm mt-1">Admin Console</p>
+          <p className="text-slate-500 text-sm mt-1">School Portal</p>
         </div>
 
         {/* Card */}
@@ -93,7 +93,7 @@ export default function LoginPage() {
           </form>
 
           <p className="text-xs text-slate-400 text-center mt-4">
-            This console is for school administrators only.
+            For school administrators and teachers.
           </p>
         </div>
       </div>

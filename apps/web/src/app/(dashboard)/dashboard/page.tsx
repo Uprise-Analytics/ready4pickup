@@ -1,6 +1,6 @@
 'use client'
 
-import { useMemo } from 'react'
+import { useMemo, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import { useAuthStore } from '@store/auth.store'
 import { useSchoolStats } from '@hooks/useSchoolAdmin'
@@ -14,8 +14,15 @@ import {
 } from 'lucide-react'
 
 export default function DashboardPage() {
+  const router = useRouter()
   const profile = useAuthStore((s) => s.profile)
+
+  useEffect(() => {
+    if (profile?.role === 'teacher') router.replace('/teacher')
+  }, [profile, router])
+
   if (!profile) return null
+  if (profile.role === 'teacher') return null
   return profile.role === 'platform_owner'
     ? <PlatformDashboard />
     : <SchoolDashboard schoolId={profile.school_id ?? ''} />

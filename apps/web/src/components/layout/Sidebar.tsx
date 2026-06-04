@@ -7,12 +7,14 @@ import { useThemeStore } from '@store/theme.store'
 import { getInitials, getAvatarColor } from '@utils/format'
 import {
   LayoutDashboard, Truck, AlertTriangle, Users, Baby,
-  History, School, Megaphone,
+  History, School, Megaphone, ClipboardList, Package,
+  Archive, Bell,
 } from 'lucide-react'
 
 const ROLE_LABELS: Record<string, string> = {
   school_admin: 'School Admin',
   platform_owner: 'Platform Owner',
+  teacher: 'Teacher',
 }
 
 interface NavItem {
@@ -23,6 +25,7 @@ interface NavItem {
 }
 
 const NAV_ITEMS: NavItem[] = [
+  // Admin + platform owner
   { href: '/dashboard',     label: 'Dashboard',      icon: <LayoutDashboard size={18} />, roles: ['school_admin', 'platform_owner'] },
   { href: '/pickups',       label: 'Live Pickups',   icon: <Truck size={18} />,           roles: ['school_admin'] },
   { href: '/incidents',     label: 'Incidents',      icon: <AlertTriangle size={18} />,   roles: ['school_admin'] },
@@ -31,6 +34,13 @@ const NAV_ITEMS: NavItem[] = [
   { href: '/history',       label: 'Pickup History', icon: <History size={18} />,         roles: ['school_admin'] },
   { href: '/announcements', label: 'Announcements',  icon: <Megaphone size={18} />,       roles: ['school_admin'] },
   { href: '/schools',       label: 'Schools',        icon: <School size={18} />,          roles: ['platform_owner'] },
+  // Teacher
+  { href: '/teacher',           label: 'Dashboard',      icon: <LayoutDashboard size={18} />, roles: ['teacher'] },
+  { href: '/teacher/roster',    label: 'My Roster',      icon: <ClipboardList size={18} />,   roles: ['teacher'] },
+  { href: '/teacher/supplies',  label: 'Supplies',       icon: <Package size={18} />,         roles: ['teacher'] },
+  { href: '/teacher/inventory', label: 'Inventory',      icon: <Archive size={18} />,         roles: ['teacher'] },
+  { href: '/teacher/incidents', label: 'Incidents',      icon: <AlertTriangle size={18} />,   roles: ['teacher'] },
+  { href: '/teacher/notifications', label: 'Notifications', icon: <Bell size={18} />,         roles: ['teacher'] },
 ]
 
 export function Sidebar() {
@@ -56,7 +66,9 @@ export function Sidebar() {
           />
           <div>
             <p className="text-sm font-bold text-slate-900 leading-none">Ready4Pickup</p>
-            <p className="text-xs text-slate-400 mt-0.5">Admin Console</p>
+            <p className="text-xs text-slate-400 mt-0.5">
+              {profile.role === 'teacher' ? 'Teacher Portal' : 'Admin Console'}
+            </p>
           </div>
         </div>
       </div>
@@ -64,7 +76,7 @@ export function Sidebar() {
       {/* Nav */}
       <nav className="flex-1 px-3 py-4 space-y-0.5 overflow-y-auto">
         {visibleItems.map((item) => {
-          const isActive = pathname === item.href || pathname.startsWith(item.href + '/')
+          const isActive = pathname === item.href || (item.href !== '/teacher' && pathname.startsWith(item.href + '/')) || (item.href === '/teacher' && pathname === '/teacher')
           return (
             <Link
               key={item.href}

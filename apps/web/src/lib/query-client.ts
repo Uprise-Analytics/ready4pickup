@@ -91,4 +91,19 @@ export const queryKeys = {
     stats: ['admin', 'stats'] as const,
     users: (filters?: object) => ['admin', 'users', filters ?? {}] as const,
   },
+  consumables: {
+    types: (classroomId: string) => ['consumables', 'types', classroomId] as const,
+    childStock: (childId: string) => ['consumables', 'stock', childId] as const,
+  },
+  inventory: {
+    school: (schoolId: string) => ['inventory', 'school', schoolId] as const,
+    classroom: (classroomId: string) => ['inventory', 'classroom', classroomId] as const,
+    stockTakes: (key: string) => ['inventory', 'stock-takes', key] as const,
+    events: (key: string) => ['inventory', 'events', key] as const,
+  },
+  teacher: {
+    classroomIds: ['teacher', 'classroom-ids'] as const,
+    roster: (schoolId: string) => ['teacher', 'roster', schoolId] as const,
+    checkins: (date: string) => ['teacher', 'checkins', date] as const,
+  },
 }
