@@ -7,13 +7,16 @@ import {
   useClassroomInventory, useCreateInventoryEvent,
   useSubmitStockTake, useMyStockTakes, useStockTakeItems,
   useClassroomInventoryEvents,
+  useSchoolInventoryAll, useMyOutgoingLoans, useMyIncomingLoans,
+  useRequestLoan, useRespondToLoan, useReturnLoan,
 } from '@hooks/useTeacher'
 import { Button } from '@components/ui/button'
 import { Input } from '@components/ui/input'
 import { Skeleton } from '@components/ui/skeleton'
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@components/ui/tabs'
 import { Badge } from '@components/ui/badge'
-import { Archive, Plus, AlertTriangle, ArrowRightLeft, Home, ChevronDown, ChevronUp } from 'lucide-react'
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@components/ui/dialog'
+import { Archive, Plus, AlertTriangle, ArrowRightLeft, Home, ChevronDown, ChevronUp, RefreshCw } from 'lucide-react'
 import { toast } from 'sonner'
 import { format } from 'date-fns'
 import type { InventoryItem, StockTakeCondition, InventoryEventType } from '@/types/database'
@@ -128,26 +131,57 @@ export default function TeacherInventoryPage() {
   const { data: classrooms   = [] } = useMyClassrooms(classroomIds)
   const classroomId = classroomIds[0] ?? null
 
-  const { data: items  = [], isLoading: itemsLoading  } = useClassroomInventory(classroomId)
-  const { data: takes  = [], isLoading: takesLoading  } = useMyStockTakes(userId)
-  const { data: events = [], isLoading: eventsLoading } = useClassroomInventoryEvents(classroomId)
+  const { data: items       = [], isLoading: itemsLoading  } = useClassroomInventory(classroomId)
+  const { data: takes       = [], isLoading: takesLoading  } = useMyStockTakes(userId)
+  const { data: events      = [], isLoading: eventsLoading } = useClassroomInventoryEvents(classroomId)
+  const { data: outgoingLoans = [], isLoading: outLoading   } = useMyOutgoingLoans(classroomId)
+  const { data: incomingLoans = [], isLoading: inLoading    } = useMyIncomingLoans(classroomId)
+  const { data: schoolItems   = [], isLoading: schoolItemsLoading } = useSchoolInventoryAll(schoolId, classroomId)
+  const requestLoan   = useRequestLoan()
+  const respondToLoan = useRespondToLoan()
+  const returnLoan    = useReturnLoan()
+
+  const [showBorrowDialog, setShowBorrowDialog] = useState(false)
+  const [borrowItem, setBorrowItem] = useState<(typeof schoolItems)[0] | null>(null)
+  const [borrowQty, setBorrowQty]   = useState('1')
+  const [borrowNote, setBorrowNote] = useState('')
+
+  const lentQtyMap = useMemo(() => {
+    const m = new Map<string, number>()
+    incomingLoans.filter((l) => l.status === 'active').forEach((l) => {
+      m.set(l.item_id, (m.get(l.item_id) ?? 0) + l.qty)
+    })
+    return m
+  }, [incomingLoans])
+
+  const pendingIncoming = incomingLoans.filter((l) => l.status === 'pending').length
+
+  const handleRequestLoan = async () => {
+    if (!schoolId || !classroomId || !userId || !borrowItem) return
+    try {
+      await requestLoan.mutateAsync({
+        schoolId, itemId: borrowItem.id, qty: parseInt(borrowQty) || 1,
+        fromClassroomId: (borrowItem as any).classroom_id,
+        toClassroomId: classroomId,
+        requestedBy: userId,
+        notes: borrowNote.trim() || undefined,
+      })
+      toast.success('Request sent — the other teacher will be notified')
+      setShowBorrowDialog(false); setBorrowItem(null); setBorrowQty('1'); setBorrowNote('')
+    } catch (e: any) { toast.error(e.message) }
+  }
 
   // Stock take form state
   const [stockCounts, setStockCounts] = useState<Record<string, { qty: string; condition: StockTakeCondition; notes: string }>>({})
   const [takeNotes, setTakeNotes] = useState('')
   const submitStockTake = useSubmitStockTake()
 
-  const initStockCounts = () => {
-    const init: typeof stockCounts = {}
-    items.forEach((item) => { init[item.id] = { qty: String(item.quantity), condition: 'good', notes: '' } })
-    setStockCounts(init)
-    setTakeNotes('')
-  }
+  // Stock counts start empty — teacher counts what they physically see
 
   const handleSubmitTake = async () => {
     if (!schoolId || !classroomId || !userId) return
     const lineItems = items.map((item) => {
-      const c = stockCounts[item.id] ?? { qty: String(item.quantity), condition: 'good' as StockTakeCondition, notes: '' }
+      const c = stockCounts[item.id] ?? { qty: '', condition: 'good' as StockTakeCondition, notes: '' }
       return { itemId: item.id, expectedQty: item.quantity, actualQty: parseInt(c.qty) || 0, condition: c.condition, notes: c.notes.trim() || undefined }
     })
     try {
@@ -176,6 +210,12 @@ export default function TeacherInventoryPage() {
           <TabsTrigger value="items">Items</TabsTrigger>
           <TabsTrigger value="stock_take">Stock Take</TabsTrigger>
           <TabsTrigger value="events">Events</TabsTrigger>
+          <TabsTrigger value="loans" className="relative">
+            Loans
+            {pendingIncoming > 0 && (
+              <span className="ml-1.5 bg-red-500 text-white text-xs font-bold px-1.5 py-0.5 rounded-full">{pendingIncoming}</span>
+            )}
+          </TabsTrigger>
         </TabsList>
 
         {/* ── Items ── */}
@@ -241,7 +281,12 @@ export default function TeacherInventoryPage() {
                         </td>
                         <td className="px-4 py-3 text-slate-500 text-xs">{item.serial_number ?? <span className="text-slate-300">—</span>}</td>
                         <td className="px-4 py-3 text-center">
-                          <span className="font-bold text-blue-700 bg-blue-50 border border-blue-200 px-2 py-0.5 rounded-full text-xs">×{item.quantity}</span>
+                          <div className="flex flex-col items-center gap-1">
+                            <span className="font-bold text-blue-700 bg-blue-50 border border-blue-200 px-2 py-0.5 rounded-full text-xs">×{item.quantity}</span>
+                            {lentQtyMap.get(item.id) ? (
+                              <span className="font-semibold text-amber-700 bg-amber-50 border border-amber-200 px-2 py-0.5 rounded-full text-xs">Lent: {lentQtyMap.get(item.id)}</span>
+                            ) : null}
+                          </div>
                         </td>
                         <td className="px-4 py-3">
                           <span className={`text-xs px-2.5 py-0.5 rounded-full font-semibold border ${CONDITION_CLASSES[item.condition] ?? ''}`}>
@@ -292,42 +337,33 @@ export default function TeacherInventoryPage() {
                   <thead>
                     <tr className="border-b border-slate-100 bg-slate-50">
                       <th className="text-left px-4 py-3 text-xs font-semibold text-slate-500 uppercase tracking-wider">Item</th>
-                      <th className="text-center px-4 py-3 text-xs font-semibold text-slate-500 uppercase tracking-wider w-28">Expected</th>
-                      <th className="text-center px-4 py-3 text-xs font-semibold text-slate-500 uppercase tracking-wider w-28">Actual Count</th>
+                      <th className="text-center px-4 py-3 text-xs font-semibold text-slate-500 uppercase tracking-wider w-36">Your Count</th>
                       <th className="text-left px-4 py-3 text-xs font-semibold text-slate-500 uppercase tracking-wider">Condition</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-slate-100">
                     {items.map((item) => {
-                      const c = stockCounts[item.id] ?? { qty: String(item.quantity), condition: 'good' as StockTakeCondition, notes: '' }
-                      const actualQty = parseInt(c.qty) || 0
-                      const diff = actualQty - item.quantity
+                      const c = stockCounts[item.id] ?? { qty: '', condition: 'good' as StockTakeCondition, notes: '' }
                       return (
-                        <tr key={item.id} className={diff < 0 ? 'bg-red-50/30' : 'hover:bg-slate-50'}>
+                        <tr key={item.id} className="hover:bg-slate-50">
                           <td className="px-4 py-3">
                             <div className="flex items-center gap-2">
                               <span className="text-lg">{CATEGORY_EMOJI[item.category]}</span>
-                              <span className="font-medium text-slate-800">{item.name}</span>
+                              <div>
+                                <span className="font-medium text-slate-800">{item.name}</span>
+                                {item.serial_number && <p className="text-xs text-slate-400">#{item.serial_number}</p>}
+                              </div>
                             </div>
                           </td>
-                          <td className="px-4 py-3 text-center text-slate-500">{item.quantity}</td>
                           <td className="px-4 py-3 text-center">
-                            <div className="flex items-center justify-center gap-1.5">
-                              <Input
-                                type="number"
-                                min={0}
-                                value={c.qty}
-                                onChange={(e) => setStockCounts((prev) => ({ ...prev, [item.id]: { ...prev[item.id] ?? { condition: 'good', notes: '' }, qty: e.target.value } }))}
-                                className="w-20 h-8 text-center text-sm font-bold"
-                                onClick={initStockCounts}
-                              />
-                              {diff !== 0 && (
-                                <span className={`text-xs font-bold ${diff < 0 ? 'text-red-600' : 'text-green-600'}`}>
-                                  {diff > 0 ? `+${diff}` : diff}
-                                </span>
-                              )}
-                            </div>
-                          </td>
+                            <Input
+                              type="number"
+                              min={0}
+                              value={c.qty}
+                              placeholder="0"
+                              onChange={(e) => setStockCounts((prev) => ({ ...prev, [item.id]: { ...prev[item.id] ?? { condition: 'good', notes: '' }, qty: e.target.value } }))}
+                              className="w-24 h-8 text-center text-sm font-bold mx-auto"
+                            /></td>
                           <td className="px-4 py-3">
                             <div className="flex gap-1">
                               {STOCK_CONDITIONS.map((cond) => (
@@ -451,7 +487,136 @@ export default function TeacherInventoryPage() {
             </div>
           )}
         </TabsContent>
+
+        {/* ── Loans ── */}
+        <TabsContent value="loans" className="mt-4 space-y-6">
+          <div className="flex justify-end">
+            <Button onClick={() => setShowBorrowDialog(true)} className="gap-1.5 bg-teal-600 hover:bg-teal-700">
+              <RefreshCw size={15} /> Borrow from Another Class
+            </Button>
+          </div>
+
+          {/* Incoming */}
+          {(inLoading || outLoading) ? (
+            <div className="space-y-2">{Array.from({length:3}).map((_,i)=><Skeleton key={i} className="h-14 w-full"/>)}</div>
+          ) : (
+            <>
+              {incomingLoans.length > 0 && (
+                <div>
+                  <p className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-3">Incoming Requests ({pendingIncoming} pending)</p>
+                  <div className="bg-white rounded-xl border border-slate-200 divide-y divide-slate-100">
+                    {incomingLoans.map((loan) => (
+                      <div key={loan.id} className="flex items-center gap-3 px-4 py-3">
+                        <span className="text-xl">{CATEGORY_EMOJI[(loan as any).item?.category ?? 'other']}</span>
+                        <div className="flex-1">
+                          <p className="font-semibold text-slate-800 text-sm">{(loan as any).item?.name ?? 'Item'}</p>
+                          <p className="text-xs text-slate-500">{(loan as any).to_classroom?.name} wants ×{loan.qty}{loan.notes ? ` — "${loan.notes}"` : ''}</p>
+                        </div>
+                        {loan.status === 'pending' ? (
+                          <div className="flex gap-2">
+                            <Button size="sm" variant="ghost" className="h-7 text-xs text-red-600 hover:bg-red-50"
+                              onClick={() => respondToLoan.mutate({id:loan.id,status:'rejected',approvedBy:userId!,fromClassroomId:loan.from_classroom_id,toClassroomId:loan.to_classroom_id},{onSuccess:()=>toast.success('Declined')})}>
+                              ✕ Decline
+                            </Button>
+                            <Button size="sm" className="h-7 text-xs bg-green-600 hover:bg-green-700"
+                              onClick={() => respondToLoan.mutate({id:loan.id,status:'active',approvedBy:userId!,fromClassroomId:loan.from_classroom_id,toClassroomId:loan.to_classroom_id},{onSuccess:()=>toast.success('Approved!')})}>
+                              ✓ Approve
+                            </Button>
+                          </div>
+                        ) : (
+                          <span className="text-xs px-2 py-0.5 rounded-full font-semibold bg-green-50 text-green-700">Active</span>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {outgoingLoans.length > 0 && (
+                <div>
+                  <p className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-3">My Requests</p>
+                  <div className="bg-white rounded-xl border border-slate-200 divide-y divide-slate-100">
+                    {outgoingLoans.map((loan) => (
+                      <div key={loan.id} className="flex items-center gap-3 px-4 py-3">
+                        <span className="text-xl">{CATEGORY_EMOJI[(loan as any).item?.category ?? 'other']}</span>
+                        <div className="flex-1">
+                          <p className="font-semibold text-slate-800 text-sm">{(loan as any).item?.name ?? 'Item'}</p>
+                          <p className="text-xs text-slate-500">From: {(loan as any).from_classroom?.name} · ×{loan.qty} · {format(new Date(loan.requested_at), 'MMM d')}</p>
+                        </div>
+                        {loan.status === 'active' ? (
+                          <Button size="sm" variant="outline" className="h-7 text-xs gap-1"
+                            onClick={() => returnLoan.mutate({id:loan.id,fromClassroomId:loan.from_classroom_id,toClassroomId:loan.to_classroom_id},{onSuccess:()=>toast.success('Marked as returned')})}>
+                            ↩ Return
+                          </Button>
+                        ) : (
+                          <span className="text-xs px-2 py-0.5 rounded-full font-semibold bg-amber-50 text-amber-700">Pending</span>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {incomingLoans.length === 0 && outgoingLoans.length === 0 && (
+                <div className="bg-white border border-slate-200 rounded-xl py-16 text-center">
+                  <RefreshCw size={32} className="mx-auto mb-3 text-slate-300" />
+                  <p className="font-semibold text-slate-600">No active loans</p>
+                  <p className="text-sm text-slate-400 mt-1">Borrow items from other classes or approve incoming requests here.</p>
+                </div>
+              )}
+            </>
+          )}
+        </TabsContent>
       </Tabs>
+
+      {/* Borrow dialog */}
+      <Dialog open={showBorrowDialog} onOpenChange={(o) => { setShowBorrowDialog(o); if (!o) { setBorrowItem(null); setBorrowQty('1'); setBorrowNote('') } }}>
+        <DialogContent className="max-w-lg max-h-[80vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>{borrowItem ? `Request: ${(borrowItem as any).name}` : 'Borrow from Another Class'}</DialogTitle>
+          </DialogHeader>
+          {borrowItem ? (
+            <div className="space-y-4">
+              <div className="bg-teal-50 border border-teal-200 rounded-lg p-3 text-sm text-teal-800">
+                <span className="font-semibold">{CATEGORY_EMOJI[(borrowItem as any).category]} {(borrowItem as any).name}</span>
+                {' '}from <span className="font-semibold">{(borrowItem as any).classroom?.name ?? 'Unknown'}</span>
+              </div>
+              <div>
+                <label className="text-xs font-medium text-slate-500 mb-1.5 block">Quantity</label>
+                <Input type="number" min={1} value={borrowQty} onChange={(e)=>setBorrowQty(e.target.value)} className="w-24 h-8 text-center" />
+              </div>
+              <div>
+                <label className="text-xs font-medium text-slate-500 mb-1.5 block">Note (optional)</label>
+                <Input value={borrowNote} onChange={(e)=>setBorrowNote(e.target.value)} placeholder="e.g. for art class tomorrow…" />
+              </div>
+              <div className="flex gap-2 pt-1">
+                <Button variant="ghost" onClick={() => setBorrowItem(null)}>Back</Button>
+                <Button onClick={handleRequestLoan} disabled={requestLoan.isPending} className="flex-1 bg-teal-600 hover:bg-teal-700">
+                  {requestLoan.isPending ? 'Sending…' : 'Send Request'}
+                </Button>
+              </div>
+            </div>
+          ) : (
+            <div className="space-y-1">
+              {schoolItemsLoading ? (
+                <div className="space-y-2">{Array.from({length:4}).map((_,i)=><Skeleton key={i} className="h-12 w-full"/>)}</div>
+              ) : schoolItems.length === 0 ? (
+                <p className="text-sm text-slate-400 text-center py-8">No items available from other classes.</p>
+              ) : schoolItems.map((si) => (
+                <button key={si.id} onClick={() => { setBorrowItem(si); setBorrowQty('1') }}
+                  className="w-full flex items-center gap-3 px-3 py-2.5 rounded-lg hover:bg-slate-50 text-left">
+                  <span className="text-lg">{CATEGORY_EMOJI[si.category]}</span>
+                  <div className="flex-1">
+                    <p className="font-medium text-slate-800 text-sm">{si.name}</p>
+                    <p className="text-xs text-slate-400">🏫 {(si as any).classroom?.name ?? 'Unassigned'} · ×{si.quantity}</p>
+                  </div>
+                  <span className="text-xs text-teal-600 font-semibold">Request →</span>
+                </button>
+              ))}
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
     </div>
   )
 }

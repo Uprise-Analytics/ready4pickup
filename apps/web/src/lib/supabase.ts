@@ -53,6 +53,7 @@ export const db = {
   inventoryEvents: () => supabase.from('inventory_events'),
   stockTakes: () => supabase.from('stock_takes'),
   stockTakeItems: () => supabase.from('stock_take_items'),
+  inventoryLoans: () => supabase.from('inventory_loans'),
 }
 
 // -------------------------------------------------------

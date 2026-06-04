@@ -5,6 +5,7 @@ import type {
   Child, ChildCheckin, ConsumableType, ChildConsumableStock, StockLevel,
   InventoryItem, InventoryEvent, StockTake, StockTakeItem,
   InventoryCategory, InventoryCondition, StockTakeCondition, InventoryEventType,
+  InventoryLoan,
 } from '@/types/database'
 
 // ── Classroom IDs for this teacher ───────────────────────────────────────────
@@ -309,6 +310,138 @@ export function useMarkAllNotificationsRead() {
 }
 
 // ── Incidents ─────────────────────────────────────────────────────────────────
+
+// ── Loans ─────────────────────────────────────────────────────────────────────
+
+type LoanWithDetails = InventoryLoan & {
+  item: Pick<InventoryItem, 'id' | 'name' | 'category'> | null
+  from_classroom: { id: string; name: string } | null
+  to_classroom: { id: string; name: string } | null
+  requester: { id: string; full_name: string } | null
+}
+
+const LOAN_SELECT = '*, item:inventory_items(id,name,category), from_classroom:classrooms!from_classroom_id(id,name), to_classroom:classrooms!to_classroom_id(id,name), requester:profiles!requested_by(id,full_name)'
+
+export function useSchoolInventoryAll(schoolId: string | null, myClassroomId: string | null) {
+  return useQuery({
+    queryKey: ['inventory', 'school-all', schoolId ?? '', myClassroomId ?? ''],
+    enabled: !!schoolId,
+    staleTime: 30 * 1000,
+    queryFn: async () => {
+      let q = db.inventoryItems()
+        .select('*, classroom:classrooms(id,name)')
+        .eq('school_id', schoolId!)
+        .eq('is_active', true)
+        .order('name')
+      if (myClassroomId) q = (q as any).neq('classroom_id', myClassroomId)
+      const { data, error } = await q
+      if (error) throw error
+      return (data ?? []) as (InventoryItem & { classroom: { id: string; name: string } | null })[]
+    },
+  })
+}
+
+export function useMyOutgoingLoans(classroomId: string | null) {
+  return useQuery({
+    queryKey: queryKeys.inventory.loans(classroomId ?? ''),
+    enabled: !!classroomId,
+    staleTime: 30 * 1000,
+    queryFn: async () => {
+      const { data, error } = await db.inventoryLoans()
+        .select(LOAN_SELECT)
+        .eq('to_classroom_id', classroomId!)
+        .in('status', ['pending', 'active'])
+        .order('requested_at', { ascending: false })
+      if (error) throw error
+      return (data ?? []) as LoanWithDetails[]
+    },
+  })
+}
+
+export function useMyIncomingLoans(classroomId: string | null) {
+  return useQuery({
+    queryKey: ['inventory', 'loans-incoming', classroomId ?? ''],
+    enabled: !!classroomId,
+    staleTime: 30 * 1000,
+    queryFn: async () => {
+      const { data, error } = await db.inventoryLoans()
+        .select(LOAN_SELECT)
+        .eq('from_classroom_id', classroomId!)
+        .in('status', ['pending', 'active'])
+        .order('requested_at', { ascending: false })
+      if (error) throw error
+      return (data ?? []) as LoanWithDetails[]
+    },
+  })
+}
+
+export function useSchoolLoans(schoolId: string | null) {
+  return useQuery({
+    queryKey: queryKeys.inventory.schoolLoans(schoolId ?? ''),
+    enabled: !!schoolId,
+    staleTime: 30 * 1000,
+    queryFn: async () => {
+      const { data, error } = await db.inventoryLoans()
+        .select(LOAN_SELECT)
+        .eq('school_id', schoolId!)
+        .not('status', 'in', '("returned","rejected")')
+        .order('requested_at', { ascending: false })
+      if (error) throw error
+      return (data ?? []) as LoanWithDetails[]
+    },
+  })
+}
+
+export function useRequestLoan() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: async (input: { schoolId: string; itemId: string; qty: number; fromClassroomId: string; toClassroomId: string; requestedBy: string; notes?: string }) => {
+      const { data, error } = await db.inventoryLoans()
+        .insert({ school_id: input.schoolId, item_id: input.itemId, qty: input.qty, from_classroom_id: input.fromClassroomId, to_classroom_id: input.toClassroomId, requested_by: input.requestedBy, notes: input.notes ?? null })
+        .select().single()
+      if (error) throw error
+      return data as InventoryLoan
+    },
+    onSuccess: (data) => {
+      qc.invalidateQueries({ queryKey: queryKeys.inventory.loans(data.to_classroom_id) })
+      qc.invalidateQueries({ queryKey: ['inventory', 'loans-incoming', data.from_classroom_id] })
+    },
+  })
+}
+
+export function useRespondToLoan() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: async (input: { id: string; status: 'active' | 'rejected'; approvedBy: string; fromClassroomId: string; toClassroomId: string }) => {
+      const { data, error } = await db.inventoryLoans()
+        .update({ status: input.status, approved_by: input.approvedBy, approved_at: new Date().toISOString() })
+        .eq('id', input.id).select().single()
+      if (error) throw error
+      return data as InventoryLoan
+    },
+    onSuccess: (_, vars) => {
+      qc.invalidateQueries({ queryKey: queryKeys.inventory.loans(vars.toClassroomId) })
+      qc.invalidateQueries({ queryKey: ['inventory', 'loans-incoming', vars.fromClassroomId] })
+    },
+  })
+}
+
+export function useReturnLoan() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: async (input: { id: string; fromClassroomId: string; toClassroomId: string }) => {
+      const { data, error } = await db.inventoryLoans()
+        .update({ status: 'returned', returned_at: new Date().toISOString() })
+        .eq('id', input.id).select().single()
+      if (error) throw error
+      return data as InventoryLoan
+    },
+    onSuccess: (_, vars) => {
+      qc.invalidateQueries({ queryKey: queryKeys.inventory.loans(vars.toClassroomId) })
+      qc.invalidateQueries({ queryKey: ['inventory', 'loans-incoming', vars.fromClassroomId] })
+    },
+  })
+}
 
 export function useReportIncident() {
   const qc = useQueryClient()

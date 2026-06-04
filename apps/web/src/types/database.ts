@@ -555,3 +555,22 @@ export interface StockTakeItem {
   condition: StockTakeCondition
   notes: string | null
 }
+
+export type InventoryLoanStatus = 'pending' | 'active' | 'returned' | 'rejected'
+
+export interface InventoryLoan {
+  id: string
+  school_id: string
+  item_id: string
+  qty: number
+  from_classroom_id: string
+  to_classroom_id: string
+  requested_by: string
+  approved_by: string | null
+  status: InventoryLoanStatus
+  notes: string | null
+  requested_at: string
+  approved_at: string | null
+  returned_at: string | null
+  created_at: string
+}

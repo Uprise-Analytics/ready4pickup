@@ -100,6 +100,8 @@ export const queryKeys = {
     classroom: (classroomId: string) => ['inventory', 'classroom', classroomId] as const,
     stockTakes: (key: string) => ['inventory', 'stock-takes', key] as const,
     events: (key: string) => ['inventory', 'events', key] as const,
+    loans: (classroomId: string) => ['inventory', 'loans', classroomId] as const,
+    schoolLoans: (schoolId: string) => ['inventory', 'loans', 'school', schoolId] as const,
   },
   teacher: {
     classroomIds: ['teacher', 'classroom-ids'] as const,
