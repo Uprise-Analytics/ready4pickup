@@ -3,8 +3,9 @@
 import Link from 'next/link'
 import { useAuthStore } from '@store/auth.store'
 import { useMyClassroomIds, useMyClassrooms, useTeacherRoster, useClassroomCheckins, useMyNotifications } from '@hooks/useTeacher'
+import { useTodaysDuties } from '@hooks/useDuties'
 import { useSchoolIncidents } from '@hooks/useSchoolAdmin'
-import { ClipboardList, Package, Archive, AlertTriangle, Bell, Users, CheckCircle, Car, BellRing } from 'lucide-react'
+import { ClipboardList, Package, Archive, AlertTriangle, Bell, Users, CheckCircle, Car, BellRing, CalendarCheck, MapPin, Clock } from 'lucide-react'
 import { Skeleton } from '@components/ui/skeleton'
 
 function StatCard({ label, value, icon: Icon, color, isLoading }: {
@@ -34,11 +35,12 @@ function StatCard({ label, value, icon: Icon, color, isLoading }: {
 }
 
 const QUICK_LINKS = [
-  { href: '/teacher/roster',        label: 'My Roster',    desc: 'View children in your class', icon: ClipboardList, color: 'bg-teal-500' },
-  { href: '/teacher/supplies',      label: 'Supplies',     desc: 'Manage class supply levels',   icon: Package,       color: 'bg-purple-500' },
-  { href: '/teacher/inventory',     label: 'Inventory',    desc: 'Items, stock takes & events',  icon: Archive,       color: 'bg-blue-500' },
-  { href: '/teacher/incidents',     label: 'Incidents',    desc: 'Report or view incidents',     icon: AlertTriangle, color: 'bg-amber-500' },
-  { href: '/teacher/notifications', label: 'Notifications',desc: 'Your notification history',    icon: Bell,          color: 'bg-pink-500' },
+  { href: '/teacher/roster',        label: 'My Roster',    desc: 'View children in your class', icon: ClipboardList,  color: 'bg-teal-500' },
+  { href: '/teacher/supplies',      label: 'Supplies',     desc: 'Manage class supply levels',   icon: Package,        color: 'bg-purple-500' },
+  { href: '/teacher/inventory',     label: 'Inventory',    desc: 'Items, stock takes & events',  icon: Archive,        color: 'bg-blue-500' },
+  { href: '/teacher/incidents',     label: 'Incidents',    desc: 'Report or view incidents',     icon: AlertTriangle,  color: 'bg-amber-500' },
+  { href: '/teacher/notifications', label: 'Notifications',desc: 'Your notification history',    icon: Bell,           color: 'bg-pink-500' },
+  { href: '/teacher/duties',        label: 'Duties',       desc: 'Your supervision schedule',    icon: CalendarCheck,  color: 'bg-indigo-500' },
 ]
 
 export default function TeacherDashboard() {
@@ -52,6 +54,7 @@ export default function TeacherDashboard() {
   const { data: checkins     = [], isLoading: checkinsLoading } = useClassroomCheckins(schoolId, classroomIds)
   const { data: incidents    = [] } = useSchoolIncidents(schoolId)
   const { data: notifications = [] } = useMyNotifications(userId)
+  const { data: todaysDuties = [] } = useTodaysDuties(userId)
 
   const hour = new Date().getHours()
   const greeting = hour < 12 ? 'Good morning' : hour < 17 ? 'Good afternoon' : 'Good evening'
@@ -96,6 +99,34 @@ export default function TeacherDashboard() {
           <Link href="/teacher/notifications" className="text-xs text-amber-700 font-semibold underline underline-offset-2">
             View all
           </Link>
+        </div>
+      )}
+
+      {/* Today's duties banner */}
+      {todaysDuties.length > 0 && (
+        <div className="bg-indigo-50 border border-indigo-200 rounded-xl px-4 py-3 space-y-2">
+          <div className="flex items-center gap-2">
+            <CalendarCheck size={18} className="text-indigo-600 flex-shrink-0" />
+            <p className="text-sm text-indigo-800 font-semibold flex-1">
+              📅 You are on duty today
+            </p>
+            <Link href="/teacher/duties" className="text-xs text-indigo-700 font-semibold underline underline-offset-2">
+              View all
+            </Link>
+          </div>
+          {todaysDuties.map((d) => (
+            <div key={d.id} className="ml-7 flex items-center gap-3 text-sm text-indigo-700">
+              <MapPin size={13} className="flex-shrink-0" />
+              <span className="font-medium">{d.location?.name}</span>
+              <Clock size={12} className="flex-shrink-0 text-indigo-400" />
+              <span className="text-indigo-500">
+                {(() => {
+                  const fmt = (t: string) => { const [h, m] = t.split(':').map(Number); return `${h % 12 || 12}:${m.toString().padStart(2, '0')} ${h >= 12 ? 'PM' : 'AM'}` }
+                  return `${fmt(d.start_time)} – ${fmt(d.end_time)}`
+                })()}
+              </span>
+            </div>
+          ))}
         </div>
       )}
 

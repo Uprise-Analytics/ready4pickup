@@ -574,3 +574,232 @@ export interface InventoryLoan {
   returned_at: string | null
   created_at: string
 }
+
+// -------------------------------------------------------
+// Assessments
+// -------------------------------------------------------
+
+export type AssessmentScoringMethod = 'rubric_4' | 'frequency' | 'yes_no' | 'achieved_3' | 'custom'
+export type AssessmentFrequency = 'daily' | 'weekly' | 'monthly' | 'term' | 'once'
+export type AssessmentSessionStatus = 'in_progress' | 'completed'
+export type AchievementCategory = 'academic' | 'social' | 'milestone' | 'behavior' | 'general'
+export type DevelopmentArea = 'cognitive' | 'language' | 'fine_motor' | 'gross_motor' | 'social_emotional' | 'creative' | 'self_care' | 'mathematics' | 'literacy' | 'other'
+
+export const DEVELOPMENT_AREA_LABELS: Record<DevelopmentArea, string> = {
+  cognitive: 'Cognitive',
+  language: 'Language',
+  fine_motor: 'Fine Motor',
+  gross_motor: 'Gross Motor',
+  social_emotional: 'Social & Emotional',
+  creative: 'Creative',
+  self_care: 'Self Care',
+  mathematics: 'Mathematics',
+  literacy: 'Literacy',
+  other: 'Other',
+}
+
+export interface AssessmentTemplate {
+  id: string
+  school_id: string | null
+  name: string
+  activity: string | null
+  development_area: DevelopmentArea | null
+  learning_outcome: string | null
+  criteria: string | null
+  scoring_method: AssessmentScoringMethod
+  score_labels: string[]
+  default_score: string
+  is_system: boolean
+  is_active: boolean
+  created_by: string | null
+  created_at: string
+  updated_at: string
+}
+
+export interface AssessmentPack {
+  id: string
+  school_id: string | null
+  name: string
+  description: string | null
+  age_range: string | null
+  version: number
+  version_label: string
+  parent_pack_id: string | null
+  published_at: string | null
+  is_deprecated: boolean
+  is_system: boolean
+  is_active: boolean
+  created_by: string | null
+  created_at: string
+}
+
+export interface AssessmentPackTemplate {
+  id: string
+  pack_id: string
+  template_id: string
+  default_frequency: AssessmentFrequency
+  sort_order: number
+  created_at: string
+}
+
+export interface AssessmentPackWithTemplates extends AssessmentPack {
+  pack_templates: Array<AssessmentPackTemplate & { template: AssessmentTemplate }>
+}
+
+export interface AssessmentPlan {
+  id: string
+  school_id: string
+  classroom_id: string
+  template_id: string | null
+  pack_id: string | null
+  name: string
+  activity: string | null
+  development_area: DevelopmentArea | null
+  learning_outcome: string | null
+  criteria: string | null
+  scoring_method: AssessmentScoringMethod
+  score_labels: string[]
+  default_score: string
+  frequency: AssessmentFrequency
+  scheduled_date: string | null
+  day_of_week: number | null
+  day_of_month: number | null
+  is_active: boolean
+  created_by: string | null
+  created_at: string
+  updated_at: string
+}
+
+export interface AssessmentSession {
+  id: string
+  school_id: string
+  plan_id: string
+  classroom_id: string | null
+  teacher_id: string | null
+  session_date: string
+  status: AssessmentSessionStatus
+  bulk_note: string | null
+  completed_at: string | null
+  created_at: string
+  updated_at: string
+}
+
+export interface AssessmentSessionWithPlan extends AssessmentSession {
+  plan: Pick<AssessmentPlan, 'id' | 'name' | 'development_area' | 'score_labels' | 'default_score' | 'criteria' | 'scoring_method'>
+}
+
+export interface AssessmentScore {
+  id: string
+  session_id: string
+  school_id: string
+  child_id: string
+  score: string
+  is_absent: boolean
+  notes: string | null
+  photo_url: string | null
+  assessed_by: string | null
+  created_at: string
+  updated_at: string
+}
+
+export interface AssessmentScoreWithChild extends AssessmentScore {
+  child: Pick<Child, 'id' | 'first_name' | 'last_name' | 'avatar_url'>
+}
+
+export interface ChildObservation {
+  id: string
+  school_id: string
+  classroom_id: string | null
+  observed_by: string | null
+  development_area: DevelopmentArea | null
+  observation: string
+  photo_url: string | null
+  is_group: boolean
+  is_published: boolean
+  observed_at: string
+  created_at: string
+}
+
+export interface ChildObservationWithChildren extends ChildObservation {
+  children: Array<{ child_id: string; child: Pick<Child, 'id' | 'first_name' | 'last_name'> }>
+  observer: Pick<Profile, 'id' | 'full_name'> | null
+}
+
+export interface Achievement {
+  id: string
+  school_id: string
+  name: string
+  description: string | null
+  emoji: string
+  category: AchievementCategory
+  trigger_template_id: string | null
+  trigger_score: string | null
+  trigger_consecutive: number | null
+  auto_award: boolean
+  is_active: boolean
+  created_by: string | null
+  created_at: string
+}
+
+export interface ChildAchievement {
+  id: string
+  school_id: string
+  child_id: string
+  achievement_id: string
+  session_id: string | null
+  awarded_by: string | null
+  notes: string | null
+  awarded_at: string
+  created_at: string
+}
+
+export interface ChildAchievementWithDetails extends ChildAchievement {
+  achievement: Pick<Achievement, 'id' | 'name' | 'emoji' | 'category'>
+  awarder: Pick<Profile, 'id' | 'full_name'> | null
+}
+
+export interface ClassroomDailyLog {
+  id: string
+  school_id: string
+  classroom_id: string
+  log_date: string
+  summary: string | null
+  is_published: boolean
+  published_at: string | null
+  created_by: string | null
+  created_at: string
+  updated_at: string
+}
+
+// -------------------------------------------------------
+// Duty Roster
+// -------------------------------------------------------
+
+export interface DutyLocation {
+  id: string
+  school_id: string
+  name: string
+  description: string | null
+  is_active: boolean
+  created_by: string | null
+  created_at: string
+}
+
+export interface DutyAssignment {
+  id: string
+  school_id: string
+  teacher_id: string
+  location_id: string
+  duty_date: string
+  start_time: string
+  end_time: string
+  notes: string | null
+  created_by: string | null
+  created_at: string
+  updated_at: string
+}
+
+export interface DutyAssignmentWithDetails extends DutyAssignment {
+  location: Pick<DutyLocation, 'id' | 'name'>
+  teacher: { id: string; full_name: string; email: string }
+}

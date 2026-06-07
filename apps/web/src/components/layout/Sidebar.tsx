@@ -8,7 +8,8 @@ import { getInitials, getAvatarColor } from '@utils/format'
 import {
   LayoutDashboard, Truck, AlertTriangle, Users, Baby,
   History, School, Megaphone, ClipboardList, Package,
-  Archive, Bell,
+  Archive, Bell, CalendarCheck, LayoutList, Award, BarChart2,
+  BookOpen, FileText,
 } from 'lucide-react'
 
 const ROLE_LABELS: Record<string, string> = {
@@ -33,14 +34,22 @@ const NAV_ITEMS: NavItem[] = [
   { href: '/children',      label: 'Children',       icon: <Baby size={18} />,            roles: ['school_admin'] },
   { href: '/history',       label: 'Pickup History', icon: <History size={18} />,         roles: ['school_admin'] },
   { href: '/announcements', label: 'Announcements',  icon: <Megaphone size={18} />,       roles: ['school_admin'] },
+  { href: '/duties',        label: 'Duty Roster',    icon: <CalendarCheck size={18} />,   roles: ['school_admin'] },
+  { href: '/assessment-templates', label: 'Templates',       icon: <LayoutList size={18} />, roles: ['school_admin'] },
+  { href: '/assessment-packs',     label: 'Packs',           icon: <Package size={18} />,    roles: ['school_admin'] },
+  { href: '/achievements',         label: 'Achievements',    icon: <Award size={18} />,      roles: ['school_admin'] },
+  { href: '/assessment-reports',   label: 'Completion',      icon: <BarChart2 size={18} />,  roles: ['school_admin'] },
   { href: '/schools',       label: 'Schools',        icon: <School size={18} />,          roles: ['platform_owner'] },
   // Teacher
-  { href: '/teacher',           label: 'Dashboard',      icon: <LayoutDashboard size={18} />, roles: ['teacher'] },
-  { href: '/teacher/roster',    label: 'My Roster',      icon: <ClipboardList size={18} />,   roles: ['teacher'] },
-  { href: '/teacher/supplies',  label: 'Supplies',       icon: <Package size={18} />,         roles: ['teacher'] },
-  { href: '/teacher/inventory', label: 'Inventory',      icon: <Archive size={18} />,         roles: ['teacher'] },
-  { href: '/teacher/incidents', label: 'Incidents',      icon: <AlertTriangle size={18} />,   roles: ['teacher'] },
-  { href: '/teacher/notifications', label: 'Notifications', icon: <Bell size={18} />,         roles: ['teacher'] },
+  { href: '/teacher',                label: 'Dashboard',      icon: <LayoutDashboard size={18} />, roles: ['teacher'] },
+  { href: '/teacher/roster',         label: 'My Roster',      icon: <ClipboardList size={18} />,   roles: ['teacher'] },
+  { href: '/teacher/assessments',    label: 'Assessments',    icon: <BookOpen size={18} />,        roles: ['teacher'] },
+  { href: '/teacher/report-cards',   label: 'Report Cards',   icon: <FileText size={18} />,        roles: ['teacher'] },
+  { href: '/teacher/supplies',       label: 'Supplies',       icon: <Package size={18} />,         roles: ['teacher'] },
+  { href: '/teacher/inventory',      label: 'Inventory',      icon: <Archive size={18} />,         roles: ['teacher'] },
+  { href: '/teacher/incidents',      label: 'Incidents',      icon: <AlertTriangle size={18} />,   roles: ['teacher'] },
+  { href: '/teacher/notifications',  label: 'Notifications',  icon: <Bell size={18} />,            roles: ['teacher'] },
+  { href: '/teacher/duties',         label: 'Duties',         icon: <CalendarCheck size={18} />,   roles: ['teacher'] },
 ]
 
 export function Sidebar() {
