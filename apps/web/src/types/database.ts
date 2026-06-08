@@ -56,6 +56,7 @@ export interface SchoolSettings {
   auto_expire_pickup_minutes?: number
   announcement_enabled?: boolean
   require_collector_photo?: boolean
+  enable_emotion_tracking?: boolean
 }
 
 export interface Profile {
@@ -197,6 +198,7 @@ export interface ChildCheckin {
   status: CheckinStatus
   date: string
   notes: string | null
+  emotion: string | null
   created_at: string
 }
 

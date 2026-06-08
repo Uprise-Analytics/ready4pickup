@@ -296,13 +296,26 @@ function SchoolTab({ schoolId }: { schoolId: string }) {
     } catch { toast.error('Failed to update school') }
   }
 
+  async function toggleEmotionTracking(enabled: boolean) {
+    try {
+      const { supabase } = await import('@lib/supabase')
+      const current = school?.settings ?? {}
+      const { error } = await supabase
+        .from('schools')
+        .update({ settings: { ...current, enable_emotion_tracking: enabled } })
+        .eq('id', schoolId)
+      if (error) throw error
+      toast.success(enabled ? 'Emotion tracking enabled' : 'Emotion tracking disabled')
+    } catch { toast.error('Failed to update setting') }
+  }
+
   if (!school) return <div className="text-sm text-slate-400">Loading school details…</div>
 
   return (
     <div className="space-y-6">
       <div>
         <h2 className="text-base font-semibold text-slate-900 mb-1">School</h2>
-        <p className="text-sm text-slate-500">Update your school's contact information.</p>
+        <p className="text-sm text-slate-500">Update your school's contact information and features.</p>
       </div>
       <Separator />
       <div className="space-y-4">
@@ -330,6 +343,25 @@ function SchoolTab({ schoolId }: { schoolId: string }) {
         <Button onClick={handleSave} disabled={isPending}>
           {isPending ? 'Saving…' : 'Save Changes'}
         </Button>
+      </div>
+
+      <Separator />
+      <div>
+        <h3 className="text-sm font-semibold text-slate-800 mb-1">Features</h3>
+        <p className="text-xs text-slate-400 mb-4">Enable or disable optional features for your school.</p>
+        <div className="flex items-start justify-between gap-4">
+          <div>
+            <p className="text-sm font-medium text-slate-800">😊 Emotion Tracking</p>
+            <p className="text-xs text-slate-400 mt-0.5">When enabled, teachers can record how children feel at check-in</p>
+          </div>
+          <button
+            type="button"
+            onClick={() => toggleEmotionTracking(!(school.settings?.enable_emotion_tracking ?? false))}
+            className={`relative flex-shrink-0 w-10 h-6 rounded-full transition-colors ${school.settings?.enable_emotion_tracking ? 'bg-teal-600' : 'bg-slate-200'}`}
+          >
+            <span className={`absolute top-1 w-4 h-4 bg-white rounded-full shadow transition-transform ${school.settings?.enable_emotion_tracking ? 'translate-x-5' : 'translate-x-1'}`} />
+          </button>
+        </div>
       </div>
     </div>
   )
