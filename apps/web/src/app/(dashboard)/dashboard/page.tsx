@@ -4,13 +4,14 @@ import { useMemo, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import { useAuthStore } from '@store/auth.store'
 import { useSchoolStats } from '@hooks/useSchoolAdmin'
-import { usePlatformStats, useAllSchools, useAllUsers } from '@hooks/useAdmin'
+import { usePlatformStats, useAllSchools, useAllUsers, useStaffCertificates } from '@hooks/useAdmin'
 import { StatCard } from '@components/dashboard/StatCard'
 import { Badge } from '@components/ui/badge'
 import { formatRelativeTime } from '@utils/format'
+import { getCertStatus } from '@/types/database'
 import {
   Baby, Users, Truck, AlertTriangle, School,
-  UserCheck, LogIn, UserCog,
+  UserCheck, LogIn, UserCog, ShieldCheck,
 } from 'lucide-react'
 
 export default function DashboardPage() {
@@ -31,7 +32,13 @@ export default function DashboardPage() {
 // ─── School Admin Dashboard ───────────────────────────────────────────────────
 
 function SchoolDashboard({ schoolId }: { schoolId: string }) {
+  const router = useRouter()
   const { data, isLoading } = useSchoolStats(schoolId)
+  const { data: certs = [] } = useStaffCertificates(schoolId)
+
+  const expired = certs.filter(c => getCertStatus(c.expiry_date) === 'expired')
+  const expiringSoon = certs.filter(c => getCertStatus(c.expiry_date) === 'expiring_soon')
+
   return (
     <div className="space-y-6">
       <div>
@@ -49,6 +56,50 @@ function SchoolDashboard({ schoolId }: { schoolId: string }) {
         <StatCard label="Teachers"     value={data?.teachers}    icon={UserCog} color="blue"  isLoading={isLoading} />
         <StatCard label="Parents"      value={data?.parents}     icon={Users}   color="green" isLoading={isLoading} />
       </div>
+
+      {expired.length > 0 && (
+        <div className="bg-red-50 border border-red-200 rounded-xl px-5 py-4 space-y-3">
+          <div className="flex items-center gap-2">
+            <ShieldCheck size={16} className="text-red-600 flex-shrink-0" />
+            <p className="text-sm font-semibold text-red-800">
+              {expired.length} expired certificate{expired.length !== 1 ? 's' : ''} — action required
+            </p>
+          </div>
+          <div className="flex flex-wrap gap-2">
+            {expired.map(c => (
+              <button
+                key={c.id}
+                onClick={() => router.push('/staff-certificates')}
+                className="px-2.5 py-1 rounded-md bg-red-100 border border-red-300 text-xs font-medium text-red-800 hover:bg-red-200 transition-colors"
+              >
+                {c.staff.full_name} · {c.title}
+              </button>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {expiringSoon.length > 0 && (
+        <div className="bg-amber-50 border border-amber-200 rounded-xl px-5 py-4 space-y-3">
+          <div className="flex items-center gap-2">
+            <AlertTriangle size={16} className="text-amber-600 flex-shrink-0" />
+            <p className="text-sm font-semibold text-amber-800">
+              {expiringSoon.length} certificate{expiringSoon.length !== 1 ? 's' : ''} expiring within 60 days
+            </p>
+          </div>
+          <div className="flex flex-wrap gap-2">
+            {expiringSoon.map(c => (
+              <button
+                key={c.id}
+                onClick={() => router.push('/staff-certificates')}
+                className="px-2.5 py-1 rounded-md bg-amber-100 border border-amber-300 text-xs font-medium text-amber-800 hover:bg-amber-200 transition-colors"
+              >
+                {c.staff.full_name} · {c.title}
+              </button>
+            ))}
+          </div>
+        </div>
+      )}
     </div>
   )
 }

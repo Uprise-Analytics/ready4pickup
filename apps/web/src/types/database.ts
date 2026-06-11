@@ -774,6 +774,37 @@ export interface ClassroomDailyLog {
 }
 
 // -------------------------------------------------------
+// Staff Certificates
+// -------------------------------------------------------
+
+export interface StaffCertificate {
+  id: string
+  school_id: string
+  staff_id: string
+  title: string
+  certificate_type: string
+  expiry_date: string
+  file_url: string | null
+  notes: string | null
+  uploaded_by: string | null
+  is_active: boolean
+  created_at: string
+  updated_at: string
+}
+
+export interface StaffCertificateWithStaff extends StaffCertificate {
+  staff: Pick<Profile, 'id' | 'full_name' | 'role'>
+}
+
+export function getCertStatus(expiryDate: string): 'expired' | 'expiring_soon' | 'valid' {
+  const today = new Date(); today.setHours(0, 0, 0, 0)
+  const exp = new Date(expiryDate)
+  if (exp < today) return 'expired'
+  const limit = new Date(today); limit.setDate(today.getDate() + 60)
+  return exp <= limit ? 'expiring_soon' : 'valid'
+}
+
+// -------------------------------------------------------
 // Duty Roster
 // -------------------------------------------------------
 

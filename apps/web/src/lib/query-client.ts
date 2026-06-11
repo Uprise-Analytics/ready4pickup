@@ -113,6 +113,9 @@ export const queryKeys = {
     assignments: (schoolId: string) => ['duties', 'assignments', schoolId] as const,
     myDuties: (teacherId: string) => ['duties', 'my', teacherId] as const,
   },
+  certificates: {
+    school: (schoolId: string) => ['certificates', 'school', schoolId] as const,
+  },
   assessments: {
     templates: (schoolId: string) => ['assessments', 'templates', schoolId] as const,
     packs: () => ['assessments', 'packs'] as const,

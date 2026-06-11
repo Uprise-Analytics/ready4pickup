@@ -3,7 +3,7 @@ import { createClient } from '@supabase/supabase-js'
 import { db, supabase, supabaseUrl, supabaseAnonKey } from '@lib/supabase'
 import { queryKeys } from '@lib/query-client'
 import { useAuthStore } from '@store/auth.store'
-import type { School, Profile, UserRole } from '@/types/database'
+import type { School, Profile, UserRole, StaffCertificate, StaffCertificateWithStaff } from '@/types/database'
 
 // -------------------------------------------------------
 // Queries
@@ -263,6 +263,90 @@ export function useUpdateUser() {
       qc.invalidateQueries({ queryKey: queryKeys.admin.users() })
       qc.invalidateQueries({ queryKey: queryKeys.profiles.detail(data.id) })
       qc.invalidateQueries({ queryKey: queryKeys.admin.stats })
+    },
+  })
+}
+
+// -------------------------------------------------------
+// Staff Certificates
+// -------------------------------------------------------
+
+export function useStaffCertificates(schoolId: string) {
+  return useQuery({
+    queryKey: queryKeys.certificates.school(schoolId),
+    enabled: !!schoolId,
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('staff_certificates')
+        .select('*, staff:profiles!staff_id(id, full_name, role)')
+        .eq('school_id', schoolId)
+        .eq('is_active', true)
+        .order('expiry_date', { ascending: true })
+      if (error) throw error
+      return (data ?? []) as StaffCertificateWithStaff[]
+    },
+  })
+}
+
+export function useCreateStaffCertificate() {
+  const qc = useQueryClient()
+  const schoolId = useAuthStore((s) => s.profile?.school_id ?? '')
+  return useMutation({
+    mutationFn: async (input: {
+      staff_id: string
+      title: string
+      certificate_type: string
+      expiry_date: string
+      notes?: string
+      file?: File
+    }) => {
+      let file_url: string | null = null
+      if (input.file) {
+        const ext = input.file.name.split('.').pop()
+        const path = `${schoolId}/${input.staff_id}/${Date.now()}.${ext}`
+        const { error: uploadError } = await supabase.storage
+          .from('staff-certificates')
+          .upload(path, input.file)
+        if (uploadError) throw uploadError
+        const { data: urlData } = supabase.storage.from('staff-certificates').getPublicUrl(path)
+        file_url = urlData.publicUrl
+      }
+      const { data, error } = await supabase
+        .from('staff_certificates')
+        .insert({
+          school_id: schoolId,
+          staff_id: input.staff_id,
+          title: input.title,
+          certificate_type: input.certificate_type,
+          expiry_date: input.expiry_date,
+          notes: input.notes ?? null,
+          file_url,
+          uploaded_by: useAuthStore.getState().profile?.id ?? null,
+        })
+        .select()
+        .single()
+      if (error) throw error
+      return data as StaffCertificate
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: queryKeys.certificates.school(schoolId) })
+    },
+  })
+}
+
+export function useDeleteStaffCertificate() {
+  const qc = useQueryClient()
+  const schoolId = useAuthStore((s) => s.profile?.school_id ?? '')
+  return useMutation({
+    mutationFn: async (id: string) => {
+      const { error } = await supabase
+        .from('staff_certificates')
+        .update({ is_active: false })
+        .eq('id', id)
+      if (error) throw error
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: queryKeys.certificates.school(schoolId) })
     },
   })
 }

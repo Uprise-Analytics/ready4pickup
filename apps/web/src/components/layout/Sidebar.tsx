@@ -9,7 +9,7 @@ import {
   LayoutDashboard, Truck, AlertTriangle, Users, Baby,
   History, School, Megaphone, ClipboardList, Package,
   Archive, Bell, CalendarCheck, LayoutList, Award, BarChart2,
-  BookOpen, FileText,
+  BookOpen, FileText, ShieldCheck,
 } from 'lucide-react'
 
 const ROLE_LABELS: Record<string, string> = {
@@ -38,7 +38,8 @@ const NAV_ITEMS: NavItem[] = [
   { href: '/assessment-templates', label: 'Templates',       icon: <LayoutList size={18} />, roles: ['school_admin'] },
   { href: '/assessment-packs',     label: 'Packs',           icon: <Package size={18} />,    roles: ['school_admin'] },
   { href: '/achievements',         label: 'Achievements',    icon: <Award size={18} />,      roles: ['school_admin'] },
-  { href: '/assessment-reports',   label: 'Completion',      icon: <BarChart2 size={18} />,  roles: ['school_admin'] },
+  { href: '/assessment-reports',   label: 'Completion',      icon: <BarChart2 size={18} />,    roles: ['school_admin'] },
+  { href: '/staff-certificates',   label: 'Certificates',    icon: <ShieldCheck size={18} />,  roles: ['school_admin'] },
   { href: '/schools',       label: 'Schools',        icon: <School size={18} />,          roles: ['platform_owner'] },
   // Teacher
   { href: '/teacher',                label: 'Dashboard',      icon: <LayoutDashboard size={18} />, roles: ['teacher'] },
