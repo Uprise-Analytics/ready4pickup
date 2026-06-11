@@ -9,11 +9,11 @@ import {
   useApplyPackToClassrooms,
 } from '@hooks/useAssessments'
 import { Package, ChevronDown, ChevronUp, Plus } from 'lucide-react'
-import type { AssessmentPack } from '@/types/database'
+import type { AssessmentPack, AssessmentPackWithTemplates } from '@/types/database'
 
 function ApplyDialog({
   pack, schoolId, createdBy, onClose,
-}: { pack: AssessmentPack; schoolId: string; createdBy: string; onClose: () => void }) {
+}: { pack: AssessmentPackWithTemplates; schoolId: string; createdBy: string; onClose: () => void }) {
   const [selected, setSelected] = useState<Set<string>>(new Set())
   const { mutateAsync: applyPack, isPending } = useApplyPackToClassrooms()
 
@@ -30,7 +30,7 @@ function ApplyDialog({
 
   const handleApply = async () => {
     if (selected.size === 0) return
-    await applyPack({ packId: pack.id, schoolId, classroomIds: Array.from(selected), createdBy })
+    await applyPack({ pack, classroomIds: Array.from(selected), schoolId, createdBy, startDate: new Date().toISOString().split('T')[0] })
     onClose()
   }
 
@@ -161,10 +161,10 @@ function PackCard({ pack, onApply }: { pack: AssessmentPack; onApply: () => void
 export default function AssessmentPacksPage() {
   const { profile } = useAuthStore()
   const schoolId = profile?.school_id ?? null
-  const [applyTarget, setApplyTarget] = useState<AssessmentPack | null>(null)
+  const [applyTarget, setApplyTarget] = useState<AssessmentPackWithTemplates | null>(null)
   const [showDeprecated, setShowDeprecated] = useState(false)
 
-  const { data: packs = [], isLoading } = useAssessmentPacks(schoolId)
+  const { data: packs = [], isLoading } = useAssessmentPacks()
 
   const { active, deprecated } = useMemo(() => ({
     active: packs.filter((p) => !p.is_deprecated),
