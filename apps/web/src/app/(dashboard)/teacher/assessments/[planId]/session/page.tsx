@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useMemo, useEffect, useCallback } from 'react'
+import { useState, useMemo, useEffect, useCallback, use } from 'react'
 import { format } from 'date-fns'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { useAuthStore } from '@store/auth.store'
@@ -25,7 +25,8 @@ const SCORE_COLORS = [
 ]
 const ABSENT_COLOR = 'bg-slate-50 text-slate-400 border-slate-200'
 
-export default function SessionScoringPage({ params }: { params: { planId: string } }) {
+export default function SessionScoringPage({ params }: { params: Promise<{ planId: string }> }) {
+  const { planId } = use(params)
   const router = useRouter()
   const searchParams = useSearchParams()
   const { profile } = useAuthStore()
@@ -40,10 +41,10 @@ export default function SessionScoringPage({ params }: { params: { planId: strin
 
   // Fetch plan
   const { data: plan } = useQuery({
-    queryKey: ['assessment-plan', params.planId],
-    enabled: !!params.planId,
+    queryKey: ['assessment-plan', planId],
+    enabled: !!planId,
     queryFn: async () => {
-      const { data, error } = await supabase.from('assessment_plans').select('*').eq('id', params.planId).single()
+      const { data, error } = await supabase.from('assessment_plans').select('*').eq('id', planId).single()
       if (error) throw error
       return data as AssessmentPlan
     },
@@ -71,7 +72,7 @@ export default function SessionScoringPage({ params }: { params: { planId: strin
     },
   })
 
-  const { data: existingSession } = useSession(params.planId, sessionDate)
+  const { data: existingSession } = useSession(planId, sessionDate)
   const { data: existingScores = [] } = useSessionScores(sessionId)
   const { mutateAsync: bulkUpsert } = useBulkUpsertScores()
   const { mutateAsync: completeSession, isPending: completePending } = useCompleteSession()
