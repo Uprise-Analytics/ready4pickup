@@ -57,6 +57,7 @@ export interface SchoolSettings {
   announcement_enabled?: boolean
   require_collector_photo?: boolean
   enable_emotion_tracking?: boolean
+  show_teacher_info_to_parents?: boolean
 }
 
 export interface Profile {

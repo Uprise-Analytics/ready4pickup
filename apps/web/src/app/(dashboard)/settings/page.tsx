@@ -309,6 +309,19 @@ function SchoolTab({ schoolId }: { schoolId: string }) {
     } catch { toast.error('Failed to update setting') }
   }
 
+  async function toggleTeacherInfo(enabled: boolean) {
+    try {
+      const { supabase } = await import('@lib/supabase')
+      const current = school?.settings ?? {}
+      const { error } = await supabase
+        .from('schools')
+        .update({ settings: { ...current, show_teacher_info_to_parents: enabled } })
+        .eq('id', schoolId)
+      if (error) throw error
+      toast.success(enabled ? 'Teacher info visible to parents' : 'Teacher info hidden from parents')
+    } catch { toast.error('Failed to update setting') }
+  }
+
   if (!school) return <div className="text-sm text-slate-400">Loading school details…</div>
 
   return (
@@ -360,6 +373,19 @@ function SchoolTab({ schoolId }: { schoolId: string }) {
             className={`relative flex-shrink-0 w-10 h-6 rounded-full transition-colors ${school.settings?.enable_emotion_tracking ? 'bg-teal-600' : 'bg-slate-200'}`}
           >
             <span className={`absolute top-1 w-4 h-4 bg-white rounded-full shadow transition-transform ${school.settings?.enable_emotion_tracking ? 'translate-x-5' : 'translate-x-1'}`} />
+          </button>
+        </div>
+        <div className="flex items-start justify-between gap-4 mt-4 pt-4 border-t border-slate-100">
+          <div>
+            <p className="text-sm font-medium text-slate-800">👩‍🏫 Teacher Info for Parents</p>
+            <p className="text-xs text-slate-400 mt-0.5">Parents can see classroom teachers and their valid certificates</p>
+          </div>
+          <button
+            type="button"
+            onClick={() => toggleTeacherInfo(!(school.settings?.show_teacher_info_to_parents ?? false))}
+            className={`relative flex-shrink-0 w-10 h-6 rounded-full transition-colors ${school.settings?.show_teacher_info_to_parents ? 'bg-teal-600' : 'bg-slate-200'}`}
+          >
+            <span className={`absolute top-1 w-4 h-4 bg-white rounded-full shadow transition-transform ${school.settings?.show_teacher_info_to_parents ? 'translate-x-5' : 'translate-x-1'}`} />
           </button>
         </div>
       </div>
