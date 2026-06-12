@@ -30,6 +30,7 @@ export type PickupStatus = 'on_the_way' | 'arrived' | 'preparing' | 'completed' 
 export type CheckinStatus = 'present' | 'absent' | 'early_departure' | 'picked_up'
 export type NoteType = 'general' | 'medical' | 'behavioral' | 'achievement'
 export type PermissionStatus = 'pending' | 'approved' | 'blocked' | 'revoked'
+export type AssessmentPlanApprovalStatus = 'pending_approval' | 'approved' | 'rejected'
 
 export interface School {
   id: string
@@ -668,6 +669,12 @@ export interface AssessmentPlan {
   day_of_week: number | null
   day_of_month: number | null
   is_active: boolean
+  approval_status: AssessmentPlanApprovalStatus
+  approved_by: string | null
+  approved_at: string | null
+  rejected_by: string | null
+  rejected_at: string | null
+  rejection_reason: string | null
   created_by: string | null
   created_at: string
   updated_at: string

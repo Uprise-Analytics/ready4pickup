@@ -21,12 +21,14 @@ import type {
   ClassroomDailyLog,
   AssessmentFrequency,
   DevelopmentArea,
+  AssessmentPlanApprovalStatus,
 } from '@/types/database'
 
 const today = () => format(new Date(), 'yyyy-MM-dd')
 
 function isDueTodayFilter(plan: AssessmentPlan): boolean {
   if (!plan.is_active) return false
+  if (plan.approval_status !== 'approved') return false
   const dow = new Date().getDay()
   const dom = new Date().getDate()
   const t = today()
@@ -202,6 +204,7 @@ export function useMyAssessmentPlans(classroomIds: string[]) {
         .select('*')
         .in('classroom_id', classroomIds)
         .eq('is_active', true)
+        .eq('approval_status', 'approved')
         .order('name')
       if (error) throw error
       return (data ?? []) as AssessmentPlan[]
@@ -221,6 +224,7 @@ export function useTodaysDuePlans(classroomIds: string[]) {
         .select('*')
         .in('classroom_id', classroomIds)
         .eq('is_active', true)
+        .eq('approval_status', 'approved')
       if (error) throw error
       return (data ?? [] as AssessmentPlan[]).filter(isDueTodayFilter)
     },
@@ -262,8 +266,10 @@ export function useCreateAssessmentPlan() {
       frequency: AssessmentFrequency
       scheduledDate: string
       createdBy: string
+      submittedByTeacher?: boolean
     }) => {
       const d = new Date(input.scheduledDate)
+      const approvalStatus: AssessmentPlanApprovalStatus = input.submittedByTeacher ? 'pending_approval' : 'approved'
       const { data, error } = await supabase
         .from('assessment_plans')
         .insert({
@@ -283,15 +289,38 @@ export function useCreateAssessmentPlan() {
           day_of_week: input.frequency === 'weekly' ? d.getDay() : null,
           day_of_month: input.frequency === 'monthly' ? d.getDate() : null,
           created_by: input.createdBy,
+          approval_status: approvalStatus,
         })
         .select()
         .single()
       if (error) throw error
+      // Notify admins when a teacher submits a plan for approval
+      if (input.submittedByTeacher && data) {
+        const { data: admins } = await supabase
+          .from('profiles')
+          .select('id')
+          .eq('school_id', input.schoolId)
+          .eq('role', 'school_admin')
+        for (const admin of admins ?? []) {
+          await supabase.from('notifications').insert({
+            user_id: admin.id,
+            school_id: input.schoolId,
+            type: 'plan_submitted',
+            title: 'New assessment plan submitted',
+            body: `A teacher submitted "${input.name}" for your approval.`,
+            data: { plan_id: data.id },
+            is_read: false,
+          })
+        }
+      }
       return data as AssessmentPlan
     },
     onSuccess: (_, vars) => {
       qc.invalidateQueries({ queryKey: queryKeys.assessments.plans(vars.classroomId) })
       qc.invalidateQueries({ queryKey: queryKeys.assessments.allPlans(vars.schoolId) })
+      if (vars.submittedByTeacher) {
+        qc.invalidateQueries({ queryKey: queryKeys.assessments.pendingPlans(vars.schoolId) })
+      }
     },
   })
 }
@@ -688,6 +717,121 @@ export function useUpsertDailyLog() {
     },
     onSuccess: (_, vars) => {
       qc.invalidateQueries({ queryKey: queryKeys.assessments.dailyLog(vars.classroomId, vars.logDate) })
+    },
+  })
+}
+
+// ── Plan approval workflow ────────────────────────────────────────────────────
+
+export function useMyPendingPlans(classroomIds: string[]) {
+  const key = classroomIds.join(',')
+  return useQuery({
+    queryKey: [...queryKeys.assessments.pendingPlans(key)],
+    enabled: classroomIds.length > 0,
+    staleTime: 30 * 1000,
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('assessment_plans')
+        .select('*')
+        .in('classroom_id', classroomIds)
+        .in('approval_status', ['pending_approval', 'rejected'])
+        .eq('is_active', true)
+        .order('created_at', { ascending: false })
+      if (error) throw error
+      return (data ?? []) as AssessmentPlan[]
+    },
+  })
+}
+
+export function usePendingApprovalPlans(schoolId: string | null) {
+  return useQuery({
+    queryKey: queryKeys.assessments.pendingPlans(schoolId ?? ''),
+    enabled: !!schoolId,
+    staleTime: 30 * 1000,
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('assessment_plans')
+        .select('*, classroom:classrooms(id, name), creator:profiles!created_by(id, full_name)')
+        .eq('school_id', schoolId!)
+        .eq('approval_status', 'pending_approval')
+        .eq('is_active', true)
+        .order('created_at', { ascending: false })
+      if (error) throw error
+      return data ?? []
+    },
+  })
+}
+
+export function useApprovePlan() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: async (input: {
+      planId: string
+      schoolId: string
+      approvedBy: string
+      teacherId: string
+      planName: string
+    }) => {
+      const { error } = await supabase
+        .from('assessment_plans')
+        .update({
+          approval_status: 'approved',
+          approved_by: input.approvedBy,
+          approved_at: new Date().toISOString(),
+        })
+        .eq('id', input.planId)
+      if (error) throw error
+      await supabase.from('notifications').insert({
+        user_id: input.teacherId,
+        school_id: input.schoolId,
+        type: 'plan_approved',
+        title: 'Assessment plan approved',
+        body: `Your plan "${input.planName}" has been approved and is now active.`,
+        data: { plan_id: input.planId },
+        is_read: false,
+      })
+    },
+    onSuccess: (_, vars) => {
+      qc.invalidateQueries({ queryKey: queryKeys.assessments.pendingPlans(vars.schoolId) })
+      qc.invalidateQueries({ queryKey: queryKeys.assessments.allPlans(vars.schoolId) })
+    },
+  })
+}
+
+export function useRejectPlan() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: async (input: {
+      planId: string
+      schoolId: string
+      rejectedBy: string
+      teacherId: string
+      planName: string
+      rejectionReason?: string
+    }) => {
+      const { error } = await supabase
+        .from('assessment_plans')
+        .update({
+          approval_status: 'rejected',
+          rejected_by: input.rejectedBy,
+          rejected_at: new Date().toISOString(),
+          rejection_reason: input.rejectionReason ?? null,
+        })
+        .eq('id', input.planId)
+      if (error) throw error
+      await supabase.from('notifications').insert({
+        user_id: input.teacherId,
+        school_id: input.schoolId,
+        type: 'plan_rejected',
+        title: 'Assessment plan needs revision',
+        body: `Your plan "${input.planName}" was not approved${input.rejectionReason ? `: ${input.rejectionReason}` : '.'}`,
+        data: { plan_id: input.planId },
+        is_read: false,
+      })
+    },
+    onSuccess: (_, vars) => {
+      qc.invalidateQueries({ queryKey: queryKeys.assessments.pendingPlans(vars.schoolId) })
+      qc.invalidateQueries({ queryKey: queryKeys.assessments.allPlans(vars.schoolId) })
     },
   })
 }

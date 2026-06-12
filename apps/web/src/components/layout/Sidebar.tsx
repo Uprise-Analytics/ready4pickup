@@ -5,11 +5,12 @@ import { usePathname } from 'next/navigation'
 import { useAuthStore } from '@store/auth.store'
 import { useThemeStore } from '@store/theme.store'
 import { getInitials, getAvatarColor } from '@utils/format'
+import { usePendingApprovalPlans } from '@hooks/useAssessments'
 import {
   LayoutDashboard, Truck, AlertTriangle, Users, Baby,
   History, School, Megaphone, ClipboardList, Package,
   Archive, Bell, CalendarCheck, LayoutList, Award, BarChart2,
-  BookOpen, FileText, ShieldCheck,
+  BookOpen, FileText, ShieldCheck, ClipboardCheck,
 } from 'lucide-react'
 
 const ROLE_LABELS: Record<string, string> = {
@@ -39,7 +40,8 @@ const NAV_ITEMS: NavItem[] = [
   { href: '/assessment-packs',     label: 'Packs',           icon: <Package size={18} />,    roles: ['school_admin'] },
   { href: '/achievements',         label: 'Achievements',    icon: <Award size={18} />,      roles: ['school_admin'] },
   { href: '/assessment-reports',   label: 'Completion',      icon: <BarChart2 size={18} />,    roles: ['school_admin'] },
-  { href: '/staff-certificates',   label: 'Certificates',    icon: <ShieldCheck size={18} />,  roles: ['school_admin'] },
+  { href: '/staff-certificates',        label: 'Certificates',    icon: <ShieldCheck size={18} />,    roles: ['school_admin'] },
+  { href: '/assessment-plan-approvals', label: 'Plan Approvals',  icon: <ClipboardCheck size={18} />, roles: ['school_admin'] },
   { href: '/schools',       label: 'Schools',        icon: <School size={18} />,          roles: ['platform_owner'] },
   // Teacher
   { href: '/teacher',                label: 'Dashboard',      icon: <LayoutDashboard size={18} />, roles: ['teacher'] },
@@ -57,6 +59,10 @@ export function Sidebar() {
   const pathname = usePathname()
   const { profile } = useAuthStore()
   const accent = useThemeStore((s) => s.getAccentOption())
+  const { data: pendingPlans = [] } = usePendingApprovalPlans(
+    profile?.role === 'school_admin' ? (profile.school_id ?? null) : null
+  )
+  const pendingCount = pendingPlans.length
 
   if (!profile) return null
 
@@ -101,7 +107,12 @@ export function Sidebar() {
               <span className={isActive ? accent.classes.icon : 'text-slate-400'}>
                 {item.icon}
               </span>
-              {item.label}
+              <span className="flex-1">{item.label}</span>
+              {item.href === '/assessment-plan-approvals' && pendingCount > 0 && (
+                <span className="ml-auto text-xs font-bold bg-amber-100 text-amber-700 px-2 py-0.5 rounded-full">
+                  {pendingCount}
+                </span>
+              )}
             </Link>
           )
         })}

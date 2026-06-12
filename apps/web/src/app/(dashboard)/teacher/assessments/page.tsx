@@ -10,12 +10,15 @@ import {
   useTodaysDuePlans,
   useTodaysSessions,
   useMyAssessmentPlans,
+  useMyPendingPlans,
   useClassroomObservations,
   useCreateOrOpenSession,
   useCreateObservation,
+  useCreateAssessmentPlan,
+  useAssessmentTemplates,
 } from '@hooks/useAssessments'
-import { BookOpen, Users, PenLine, CheckCircle2, Clock } from 'lucide-react'
-import type { AssessmentPlan, AssessmentSessionWithPlan, DevelopmentArea } from '@/types/database'
+import { BookOpen, Users, PenLine, CheckCircle2, Clock, Plus } from 'lucide-react'
+import type { AssessmentPlan, AssessmentSessionWithPlan, DevelopmentArea, AssessmentFrequency } from '@/types/database'
 
 const todayStr = () => format(new Date(), 'yyyy-MM-dd')
 
@@ -132,12 +135,102 @@ function ObservationModal({
   )
 }
 
+const FREQ_OPTIONS: { value: AssessmentFrequency; label: string }[] = [
+  { value: 'daily', label: 'Daily' },
+  { value: 'weekly', label: 'Weekly' },
+  { value: 'monthly', label: 'Monthly' },
+  { value: 'once', label: 'Once' },
+]
+
+function CreatePlanModal({
+  classroomId, schoolId, createdBy, onClose,
+}: { classroomId: string; schoolId: string; createdBy: string; onClose: () => void }) {
+  const [templateId, setTemplateId] = useState('')
+  const [frequency, setFrequency] = useState<AssessmentFrequency>('weekly')
+  const [startDate, setStartDate] = useState(todayStr())
+  const { data: templates = [] } = useAssessmentTemplates(schoolId)
+  const { mutateAsync: createPlan, isPending } = useCreateAssessmentPlan()
+
+  const activeTemplates = templates.filter((t) => t.is_active !== false)
+
+  const handleSubmit = async () => {
+    const template = activeTemplates.find((t) => t.id === templateId)
+    if (!template) return
+    await createPlan({
+      schoolId,
+      classroomId,
+      templateId: template.id,
+      name: template.name,
+      activity: template.activity ?? undefined,
+      developmentArea: template.development_area ?? undefined,
+      learningOutcome: template.learning_outcome ?? undefined,
+      criteria: template.criteria ?? undefined,
+      scoringMethod: template.scoring_method,
+      scoreLabels: template.score_labels,
+      defaultScore: template.default_score,
+      frequency,
+      scheduledDate: startDate,
+      createdBy,
+      submittedByTeacher: true,
+    })
+    onClose()
+  }
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40">
+      <div className="bg-white rounded-2xl p-6 w-full max-w-md shadow-2xl max-h-[90vh] overflow-y-auto">
+        <h2 className="text-lg font-bold text-slate-900 mb-1">Submit Assessment Plan</h2>
+        <p className="text-xs text-slate-400 mb-5">Your plan will be sent to the admin for approval before it becomes active.</p>
+
+        <p className="text-xs font-semibold text-slate-500 uppercase tracking-wider mb-2">Template</p>
+        <select
+          value={templateId}
+          onChange={(e) => setTemplateId(e.target.value)}
+          className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm text-slate-800 mb-4 focus:outline-none focus:ring-2 focus:ring-violet-400"
+        >
+          <option value="">Select a template…</option>
+          {activeTemplates.map((t) => (
+            <option key={t.id} value={t.id}>{t.name}{t.development_area ? ` · ${t.development_area.replace('_', ' ')}` : ''}</option>
+          ))}
+        </select>
+
+        <p className="text-xs font-semibold text-slate-500 uppercase tracking-wider mb-2">Frequency</p>
+        <div className="flex gap-2 mb-4">
+          {FREQ_OPTIONS.map((f) => (
+            <button key={f.value} onClick={() => setFrequency(f.value)}
+              className={`flex-1 py-1.5 rounded-lg text-xs font-semibold border transition-colors ${frequency === f.value ? 'bg-violet-600 text-white border-violet-600' : 'border-slate-200 text-slate-600 hover:border-slate-400'}`}>
+              {f.label}
+            </button>
+          ))}
+        </div>
+
+        <p className="text-xs font-semibold text-slate-500 uppercase tracking-wider mb-2">Start Date</p>
+        <input
+          type="date"
+          value={startDate}
+          onChange={(e) => setStartDate(e.target.value)}
+          className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm text-slate-800 mb-6 focus:outline-none focus:ring-2 focus:ring-violet-400"
+        />
+
+        <div className="flex gap-3">
+          <button onClick={handleSubmit} disabled={isPending || !templateId}
+            className="flex-1 bg-violet-600 hover:bg-violet-700 disabled:opacity-50 text-white font-semibold py-2 rounded-lg text-sm">
+            {isPending ? 'Submitting…' : 'Submit for Approval'}
+          </button>
+          <button onClick={onClose} className="px-4 py-2 border border-slate-200 rounded-lg text-sm text-slate-600 hover:bg-slate-50">Cancel</button>
+        </div>
+      </div>
+    </div>
+  )
+}
+
 export default function TeacherAssessmentsPage() {
   const router = useRouter()
   const { profile } = useAuthStore()
   const schoolId = profile?.school_id ?? null
   const [tab, setTab] = useState<'today' | 'all'>('today')
   const [obsModal, setObsModal] = useState<'single' | 'group' | null>(null)
+  const [createModal, setCreateModal] = useState(false)
 
   const { data: classroomIds = [] } = useQuery({
     queryKey: ['teacher', 'classroom-ids'],
@@ -152,6 +245,7 @@ export default function TeacherAssessmentsPage() {
   const { data: duePlans = [], isLoading: duePlansLoading } = useTodaysDuePlans(classroomIds)
   const { data: todaysSessions = [], isLoading: sessionsLoading } = useTodaysSessions(classroomIds)
   const { data: allPlans = [], isLoading: allPlansLoading } = useMyAssessmentPlans(classroomIds)
+  const { data: pendingPlans = [] } = useMyPendingPlans(classroomIds)
   const { data: observations = [] } = useClassroomObservations(classroomIds[0] ?? null)
   const { mutateAsync: createOrOpen } = useCreateOrOpenSession()
 
@@ -190,6 +284,10 @@ export default function TeacherAssessmentsPage() {
           <p className="text-sm text-slate-500 mt-1">{format(new Date(), 'EEEE, MMMM d, yyyy')}</p>
         </div>
         <div className="flex gap-2">
+          <button onClick={() => setCreateModal(true)}
+            className="flex items-center gap-1.5 px-4 py-2 bg-violet-50 hover:bg-violet-100 text-violet-700 font-semibold rounded-lg text-sm border border-violet-200">
+            <Plus size={15} /> Submit Plan
+          </button>
           <button onClick={() => setObsModal('single')}
             className="flex items-center gap-1.5 px-4 py-2 bg-blue-50 hover:bg-blue-100 text-blue-700 font-semibold rounded-lg text-sm border border-blue-200">
             <PenLine size={15} /> Observation
@@ -260,13 +358,35 @@ export default function TeacherAssessmentsPage() {
         </div>
       ) : (
         <div className="space-y-3">
+          {pendingPlans.length > 0 && (
+            <div className="mb-2">
+              <p className="text-xs font-bold text-amber-600 uppercase tracking-wider mb-2">Pending Admin Approval ({pendingPlans.length})</p>
+              {pendingPlans.map((plan) => (
+                <div key={plan.id} className={`rounded-xl px-5 py-4 border mb-2 ${plan.approval_status === 'rejected' ? 'bg-red-50 border-red-200' : 'bg-amber-50 border-amber-200'}`}>
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <p className="font-semibold text-slate-800">{plan.name}</p>
+                    {plan.development_area && (
+                      <span className="text-xs font-medium text-violet-700 bg-violet-100 px-2 py-0.5 rounded-full capitalize">{plan.development_area.replace('_', ' ')}</span>
+                    )}
+                    <span className={`text-xs font-semibold px-2 py-0.5 rounded-full ml-auto ${plan.approval_status === 'rejected' ? 'text-red-700 bg-red-100' : 'text-amber-700 bg-amber-100'}`}>
+                      {plan.approval_status === 'rejected' ? 'Not Approved' : 'Awaiting Approval'}
+                    </span>
+                  </div>
+                  {plan.approval_status === 'rejected' && plan.rejection_reason && (
+                    <p className="text-xs text-red-600 mt-2">Reason: {plan.rejection_reason}</p>
+                  )}
+                  <p className="text-xs text-slate-400 mt-1 capitalize">{plan.frequency}</p>
+                </div>
+              ))}
+            </div>
+          )}
           {allPlansLoading ? (
             <div className="text-center py-12 text-slate-400">Loading…</div>
-          ) : allPlans.length === 0 ? (
+          ) : allPlans.length === 0 && pendingPlans.length === 0 ? (
             <div className="text-center py-16">
               <BookOpen size={44} className="text-slate-300 mx-auto mb-3" />
               <p className="font-semibold text-slate-600 text-lg">No assessment plans</p>
-              <p className="text-sm text-slate-400 mt-1">Ask your admin to apply an assessment pack to your classroom.</p>
+              <p className="text-sm text-slate-400 mt-1">Submit a plan for admin approval, or ask your admin to apply an assessment pack.</p>
             </div>
           ) : (
             allPlans.map((plan) => (
@@ -283,6 +403,14 @@ export default function TeacherAssessmentsPage() {
           schoolId={schoolId ?? ''}
           observedBy={profile?.id ?? ''}
           onClose={() => setObsModal(null)}
+        />
+      )}
+      {createModal && classroomIds[0] && schoolId && profile?.id && (
+        <CreatePlanModal
+          classroomId={classroomIds[0]}
+          schoolId={schoolId}
+          createdBy={profile.id}
+          onClose={() => setCreateModal(false)}
         />
       )}
     </div>

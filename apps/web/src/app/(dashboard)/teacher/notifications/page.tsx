@@ -15,8 +15,11 @@ const TYPE_CONFIG: Record<string, { label: string; emoji: string; className: str
   bottle_log:      { label: 'Bottle',     emoji: '🍼', className: 'bg-amber-50 text-amber-700 border-amber-200' },
   incident_report: { label: 'Incident',   emoji: '🚨', className: 'bg-red-50 text-red-700 border-red-200' },
   consumable_low:  { label: 'Low Supply', emoji: '⚠️', className: 'bg-orange-50 text-orange-700 border-orange-200' },
-  stock_take:      { label: 'Stock Take', emoji: '📋', className: 'bg-purple-50 text-purple-700 border-purple-200' },
-  inventory_event: { label: 'Inventory',  emoji: '🗂️', className: 'bg-slate-50 text-slate-700 border-slate-200' },
+  stock_take:      { label: 'Stock Take',    emoji: '📋', className: 'bg-purple-50 text-purple-700 border-purple-200' },
+  inventory_event: { label: 'Inventory',     emoji: '🗂️', className: 'bg-slate-50 text-slate-700 border-slate-200' },
+  plan_approved:   { label: 'Plan Approved', emoji: '✅', className: 'bg-green-50 text-green-700 border-green-200' },
+  plan_rejected:   { label: 'Plan Revision', emoji: '🔄', className: 'bg-amber-50 text-amber-700 border-amber-200' },
+  plan_submitted:  { label: 'Plan Submitted', emoji: '📋', className: 'bg-violet-50 text-violet-700 border-violet-200' },
 }
 
 export default function TeacherNotificationsPage() {

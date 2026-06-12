@@ -121,6 +121,7 @@ export const queryKeys = {
     packs: () => ['assessments', 'packs'] as const,
     plans: (classroomId: string) => ['assessments', 'plans', classroomId] as const,
     allPlans: (schoolId: string) => ['assessments', 'plans', 'school', schoolId] as const,
+    pendingPlans: (schoolId: string) => ['assessments', 'plans', 'pending', schoolId] as const,
     session: (planId: string, date: string) => ['assessments', 'session', planId, date] as const,
     sessions: (classroomId: string, date: string) => ['assessments', 'sessions', classroomId, date] as const,
     allSessions: (schoolId: string) => ['assessments', 'sessions', 'school', schoolId] as const,
