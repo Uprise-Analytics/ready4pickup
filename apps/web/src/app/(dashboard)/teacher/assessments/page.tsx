@@ -145,34 +145,46 @@ const FREQ_OPTIONS: { value: AssessmentFrequency; label: string }[] = [
 function CreatePlanModal({
   classroomId, schoolId, createdBy, onClose,
 }: { classroomId: string; schoolId: string; createdBy: string; onClose: () => void }) {
+  const [mode, setMode] = useState<'template' | 'custom'>('template')
   const [templateId, setTemplateId] = useState('')
+  const [customName, setCustomName] = useState('')
+  const [customCriteria, setCustomCriteria] = useState('')
+  const [customArea, setCustomArea] = useState('')
   const [frequency, setFrequency] = useState<AssessmentFrequency>('weekly')
   const [startDate, setStartDate] = useState(todayStr())
   const { data: templates = [] } = useAssessmentTemplates(schoolId)
   const { mutateAsync: createPlan, isPending } = useCreateAssessmentPlan()
 
   const activeTemplates = templates.filter((t) => t.is_active !== false)
+  const canSubmit = mode === 'template' ? !!templateId : !!customName.trim()
 
   const handleSubmit = async () => {
-    const template = activeTemplates.find((t) => t.id === templateId)
-    if (!template) return
-    await createPlan({
-      schoolId,
-      classroomId,
-      templateId: template.id,
-      name: template.name,
-      activity: template.activity ?? undefined,
-      developmentArea: template.development_area ?? undefined,
-      learningOutcome: template.learning_outcome ?? undefined,
-      criteria: template.criteria ?? undefined,
-      scoringMethod: template.scoring_method,
-      scoreLabels: template.score_labels,
-      defaultScore: template.default_score,
-      frequency,
-      scheduledDate: startDate,
-      createdBy,
-      submittedByTeacher: true,
-    })
+    if (mode === 'template') {
+      const template = activeTemplates.find((t) => t.id === templateId)
+      if (!template) return
+      await createPlan({
+        schoolId, classroomId,
+        templateId: template.id,
+        name: template.name,
+        activity: template.activity ?? undefined,
+        developmentArea: template.development_area as any ?? undefined,
+        learningOutcome: template.learning_outcome ?? undefined,
+        criteria: template.criteria ?? undefined,
+        scoringMethod: template.scoring_method,
+        scoreLabels: template.score_labels,
+        defaultScore: template.default_score,
+        frequency, scheduledDate: startDate, createdBy, submittedByTeacher: true,
+      })
+    } else {
+      if (!customName.trim()) return
+      await createPlan({
+        schoolId, classroomId,
+        name: customName.trim(),
+        criteria: customCriteria.trim() || undefined,
+        developmentArea: customArea as any || undefined,
+        frequency, scheduledDate: startDate, createdBy, submittedByTeacher: true,
+      })
+    }
     onClose()
   }
 
@@ -180,19 +192,62 @@ function CreatePlanModal({
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40">
       <div className="bg-white rounded-2xl p-6 w-full max-w-md shadow-2xl max-h-[90vh] overflow-y-auto">
         <h2 className="text-lg font-bold text-slate-900 mb-1">Submit Assessment Plan</h2>
-        <p className="text-xs text-slate-400 mb-5">Your plan will be sent to the admin for approval before it becomes active.</p>
+        <p className="text-xs text-slate-400 mb-4">Your plan will be sent to the admin for approval before it becomes active.</p>
 
-        <p className="text-xs font-semibold text-slate-500 uppercase tracking-wider mb-2">Template</p>
-        <select
-          value={templateId}
-          onChange={(e) => setTemplateId(e.target.value)}
-          className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm text-slate-800 mb-4 focus:outline-none focus:ring-2 focus:ring-violet-400"
-        >
-          <option value="">Select a template…</option>
-          {activeTemplates.map((t) => (
-            <option key={t.id} value={t.id}>{t.name}{t.development_area ? ` · ${t.development_area.replace('_', ' ')}` : ''}</option>
+        {/* Mode toggle */}
+        <div className="flex gap-1 p-1 bg-slate-100 rounded-lg mb-5">
+          {(['template', 'custom'] as const).map((m) => (
+            <button key={m} onClick={() => setMode(m)}
+              className={`flex-1 py-1.5 rounded-md text-xs font-semibold transition-colors ${mode === m ? 'bg-white text-violet-700 shadow-sm' : 'text-slate-500 hover:text-slate-700'}`}>
+              {m === 'template' ? '📚 From Template' : '✏️ Custom'}
+            </button>
           ))}
-        </select>
+        </div>
+
+        {mode === 'template' ? (
+          <>
+            <p className="text-xs font-semibold text-slate-500 uppercase tracking-wider mb-2">Template</p>
+            <select
+              value={templateId}
+              onChange={(e) => setTemplateId(e.target.value)}
+              className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm text-slate-800 mb-4 focus:outline-none focus:ring-2 focus:ring-violet-400"
+            >
+              <option value="">Select a template…</option>
+              {activeTemplates.map((t) => (
+                <option key={t.id} value={t.id}>{t.name}{t.development_area ? ` · ${t.development_area.replace('_', ' ')}` : ''}</option>
+              ))}
+            </select>
+          </>
+        ) : (
+          <>
+            <p className="text-xs font-semibold text-slate-500 uppercase tracking-wider mb-2">What to assess <span className="text-red-400">*</span></p>
+            <input
+              value={customName}
+              onChange={(e) => setCustomName(e.target.value)}
+              placeholder="e.g. Recognises letters A–E"
+              className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm text-slate-800 mb-4 focus:outline-none focus:ring-2 focus:ring-violet-400"
+            />
+
+            <p className="text-xs font-semibold text-slate-500 uppercase tracking-wider mb-2">Observable criteria <span className="text-slate-300">(optional)</span></p>
+            <textarea
+              value={customCriteria}
+              onChange={(e) => setCustomCriteria(e.target.value)}
+              placeholder="How will you know the child has achieved this?"
+              rows={3}
+              className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm text-slate-800 mb-4 resize-none focus:outline-none focus:ring-2 focus:ring-violet-400"
+            />
+
+            <p className="text-xs font-semibold text-slate-500 uppercase tracking-wider mb-2">Development area <span className="text-slate-300">(optional)</span></p>
+            <div className="flex flex-wrap gap-2 mb-4">
+              {AREA_OPTIONS.map((a) => (
+                <button key={a.value} onClick={() => setCustomArea(customArea === a.value ? '' : a.value)}
+                  className={`px-3 py-1 rounded-full text-xs font-semibold border transition-colors ${customArea === a.value ? 'bg-violet-600 text-white border-violet-600' : 'border-slate-200 text-slate-600 hover:border-slate-400'}`}>
+                  {a.label}
+                </button>
+              ))}
+            </div>
+          </>
+        )}
 
         <p className="text-xs font-semibold text-slate-500 uppercase tracking-wider mb-2">Frequency</p>
         <div className="flex gap-2 mb-4">
@@ -213,7 +268,7 @@ function CreatePlanModal({
         />
 
         <div className="flex gap-3">
-          <button onClick={handleSubmit} disabled={isPending || !templateId}
+          <button onClick={handleSubmit} disabled={isPending || !canSubmit}
             className="flex-1 bg-violet-600 hover:bg-violet-700 disabled:opacity-50 text-white font-semibold py-2 rounded-lg text-sm">
             {isPending ? 'Submitting…' : 'Submit for Approval'}
           </button>
