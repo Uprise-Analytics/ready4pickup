@@ -132,5 +132,8 @@ export const queryKeys = {
     childAchievements: (childId: string) => ['assessments', 'child-achievements', childId] as const,
     dailyLog: (classroomId: string, date: string) => ['assessments', 'daily-log', classroomId, date] as const,
     completionStats: (schoolId: string) => ['assessments', 'completion', schoolId] as const,
+    submissions: (schoolId: string) => ['assessments', 'submissions', schoolId] as const,
+    mySubmissions: (userId: string) => ['assessments', 'submissions', 'mine', userId] as const,
+    pendingSubmissions: (schoolId: string) => ['assessments', 'submissions', 'pending', schoolId] as const,
   },
 }

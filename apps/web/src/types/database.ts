@@ -588,6 +588,7 @@ export type AssessmentFrequency = 'daily' | 'weekly' | 'monthly' | 'term' | 'onc
 export type AssessmentSessionStatus = 'in_progress' | 'completed'
 export type AchievementCategory = 'academic' | 'social' | 'milestone' | 'behavior' | 'general'
 export type DevelopmentArea = 'cognitive' | 'language' | 'fine_motor' | 'gross_motor' | 'social_emotional' | 'creative' | 'self_care' | 'mathematics' | 'literacy' | 'other'
+export type AgeGroup = '2-3' | '3-4' | '4-5' | 'all'
 
 export const DEVELOPMENT_AREA_LABELS: Record<DevelopmentArea, string> = {
   cognitive: 'Cognitive',
@@ -613,6 +614,7 @@ export interface AssessmentTemplate {
   scoring_method: AssessmentScoringMethod
   score_labels: string[]
   default_score: string
+  age_group: AgeGroup
   is_system: boolean
   is_active: boolean
   created_by: string | null
@@ -656,6 +658,7 @@ export interface AssessmentPlan {
   classroom_id: string
   template_id: string | null
   pack_id: string | null
+  submission_id: string | null
   name: string
   activity: string | null
   development_area: DevelopmentArea | null
@@ -678,6 +681,29 @@ export interface AssessmentPlan {
   created_by: string | null
   created_at: string
   updated_at: string
+}
+
+export interface PlanSubmission {
+  id: string
+  school_id: string
+  classroom_id: string
+  submitted_by: string | null
+  name: string
+  term: string | null
+  approval_status: AssessmentPlanApprovalStatus
+  approved_by: string | null
+  approved_at: string | null
+  rejected_by: string | null
+  rejected_at: string | null
+  rejection_reason: string | null
+  created_at: string
+  updated_at: string
+}
+
+export interface PlanSubmissionWithDetails extends PlanSubmission {
+  classroom: Pick<Classroom, 'id' | 'name'>
+  submitter: Pick<Profile, 'id' | 'full_name'> | null
+  items: AssessmentPlan[]
 }
 
 export interface AssessmentSession {

@@ -5,7 +5,7 @@ import { usePathname } from 'next/navigation'
 import { useAuthStore } from '@store/auth.store'
 import { useThemeStore } from '@store/theme.store'
 import { getInitials, getAvatarColor } from '@utils/format'
-import { usePendingApprovalPlans } from '@hooks/useAssessments'
+import { usePendingPlanSubmissions } from '@hooks/useAssessments'
 import {
   LayoutDashboard, Truck, AlertTriangle, Users, Baby,
   History, School, Megaphone, ClipboardList, Package,
@@ -59,7 +59,7 @@ export function Sidebar() {
   const pathname = usePathname()
   const { profile } = useAuthStore()
   const accent = useThemeStore((s) => s.getAccentOption())
-  const { data: pendingPlans = [] } = usePendingApprovalPlans(
+  const { data: pendingPlans = [] } = usePendingPlanSubmissions(
     profile?.role === 'school_admin' ? (profile.school_id ?? null) : null
   )
   const pendingCount = pendingPlans.length

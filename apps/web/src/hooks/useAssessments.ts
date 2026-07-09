@@ -22,6 +22,8 @@ import type {
   AssessmentFrequency,
   DevelopmentArea,
   AssessmentPlanApprovalStatus,
+  PlanSubmission,
+  PlanSubmissionWithDetails,
 } from '@/types/database'
 
 const today = () => format(new Date(), 'yyyy-MM-dd')
@@ -832,6 +834,223 @@ export function useRejectPlan() {
     onSuccess: (_, vars) => {
       qc.invalidateQueries({ queryKey: queryKeys.assessments.pendingPlans(vars.schoolId) })
       qc.invalidateQueries({ queryKey: queryKeys.assessments.allPlans(vars.schoolId) })
+    },
+  })
+}
+
+// ── Plan submission workflow (teacher submits multi-item plans) ───────────────
+
+export function useMyPlanSubmissions(userId: string | null) {
+  return useQuery({
+    queryKey: queryKeys.assessments.mySubmissions(userId ?? ''),
+    enabled: !!userId,
+    staleTime: 30 * 1000,
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('plan_submissions')
+        .select('*, classroom:classrooms(id, name), items:assessment_plans(*)')
+        .eq('submitted_by', userId!)
+        .order('created_at', { ascending: false })
+      if (error) throw error
+      return (data ?? []) as PlanSubmissionWithDetails[]
+    },
+  })
+}
+
+export function usePendingPlanSubmissions(schoolId: string | null) {
+  return useQuery({
+    queryKey: queryKeys.assessments.pendingSubmissions(schoolId ?? ''),
+    enabled: !!schoolId,
+    staleTime: 30 * 1000,
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('plan_submissions')
+        .select('*, classroom:classrooms(id, name), submitter:profiles!submitted_by(id, full_name), items:assessment_plans(*)')
+        .eq('school_id', schoolId!)
+        .eq('approval_status', 'pending_approval')
+        .order('created_at', { ascending: false })
+      if (error) throw error
+      return (data ?? []) as PlanSubmissionWithDetails[]
+    },
+  })
+}
+
+export function useSubmitAssessmentPlan() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: async (input: {
+      schoolId: string
+      classroomId: string
+      submittedBy: string
+      name: string
+      term: string | null
+      items: Array<{
+        templateId?: string
+        name: string
+        activity?: string
+        developmentArea?: DevelopmentArea
+        criteria?: string
+        frequency: AssessmentFrequency
+        scheduledDate: string
+      }>
+    }) => {
+      // Create the submission header
+      const { data: submission, error: subErr } = await supabase
+        .from('plan_submissions')
+        .insert({
+          school_id: input.schoolId,
+          classroom_id: input.classroomId,
+          submitted_by: input.submittedBy,
+          name: input.name,
+          term: input.term,
+          approval_status: 'pending_approval',
+        })
+        .select()
+        .single()
+      if (subErr) throw subErr
+
+      // Create individual assessment plan items linked to the submission
+      const rows = input.items.map((item) => {
+        const d = new Date(item.scheduledDate)
+        return {
+          school_id: input.schoolId,
+          classroom_id: input.classroomId,
+          template_id: item.templateId ?? null,
+          submission_id: submission.id,
+          name: item.name,
+          activity: item.activity ?? null,
+          development_area: item.developmentArea ?? null,
+          criteria: item.criteria ?? null,
+          scoring_method: 'rubric_4',
+          score_labels: ['Not Observed', 'Needs Support', 'Developing', 'Achieved'],
+          default_score: 'Achieved',
+          frequency: item.frequency,
+          scheduled_date: item.scheduledDate,
+          day_of_week: item.frequency === 'weekly' ? d.getDay() : null,
+          day_of_month: item.frequency === 'monthly' ? d.getDate() : null,
+          created_by: input.submittedBy,
+          approval_status: 'pending_approval' as AssessmentPlanApprovalStatus,
+        }
+      })
+
+      const { error: plansErr } = await supabase.from('assessment_plans').insert(rows)
+      if (plansErr) throw plansErr
+
+      // Notify all school admins
+      const { data: admins } = await supabase
+        .from('profiles')
+        .select('id')
+        .eq('school_id', input.schoolId)
+        .eq('role', 'school_admin')
+      for (const admin of admins ?? []) {
+        await supabase.from('notifications').insert({
+          user_id: admin.id,
+          school_id: input.schoolId,
+          type: 'plan_submitted',
+          title: 'New assessment plan submitted',
+          body: `A teacher submitted "${input.name}" for your approval.`,
+          data: { submission_id: submission.id },
+          is_read: false,
+        })
+      }
+      return submission as PlanSubmission
+    },
+    onSuccess: (_, vars) => {
+      qc.invalidateQueries({ queryKey: queryKeys.assessments.mySubmissions(vars.submittedBy) })
+      qc.invalidateQueries({ queryKey: queryKeys.assessments.pendingSubmissions(vars.schoolId) })
+    },
+  })
+}
+
+export function useApproveSubmission() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: async (input: {
+      submissionId: string
+      schoolId: string
+      approvedBy: string
+      submittedBy: string
+      planName: string
+    }) => {
+      const now = new Date().toISOString()
+      // Approve the submission
+      const { error: subErr } = await supabase
+        .from('plan_submissions')
+        .update({ approval_status: 'approved', approved_by: input.approvedBy, approved_at: now })
+        .eq('id', input.submissionId)
+      if (subErr) throw subErr
+      // Approve all linked plans
+      const { error: plansErr } = await supabase
+        .from('assessment_plans')
+        .update({ approval_status: 'approved', approved_by: input.approvedBy, approved_at: now })
+        .eq('submission_id', input.submissionId)
+      if (plansErr) throw plansErr
+      // Notify the teacher
+      if (input.submittedBy) {
+        await supabase.from('notifications').insert({
+          user_id: input.submittedBy,
+          school_id: input.schoolId,
+          type: 'plan_approved',
+          title: 'Assessment plan approved',
+          body: `Your plan "${input.planName}" has been approved and is now active.`,
+          data: { submission_id: input.submissionId },
+          is_read: false,
+        })
+      }
+    },
+    onSuccess: (_, vars) => {
+      qc.invalidateQueries({ queryKey: queryKeys.assessments.pendingSubmissions(vars.schoolId) })
+      qc.invalidateQueries({ queryKey: queryKeys.assessments.allPlans(vars.schoolId) })
+    },
+  })
+}
+
+export function useRejectSubmission() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: async (input: {
+      submissionId: string
+      schoolId: string
+      rejectedBy: string
+      submittedBy: string
+      planName: string
+      rejectionReason?: string
+    }) => {
+      const now = new Date().toISOString()
+      const { error: subErr } = await supabase
+        .from('plan_submissions')
+        .update({
+          approval_status: 'rejected',
+          rejected_by: input.rejectedBy,
+          rejected_at: now,
+          rejection_reason: input.rejectionReason ?? null,
+        })
+        .eq('id', input.submissionId)
+      if (subErr) throw subErr
+      const { error: plansErr } = await supabase
+        .from('assessment_plans')
+        .update({
+          approval_status: 'rejected',
+          rejected_by: input.rejectedBy,
+          rejected_at: now,
+          rejection_reason: input.rejectionReason ?? null,
+        })
+        .eq('submission_id', input.submissionId)
+      if (plansErr) throw plansErr
+      if (input.submittedBy) {
+        await supabase.from('notifications').insert({
+          user_id: input.submittedBy,
+          school_id: input.schoolId,
+          type: 'plan_rejected',
+          title: 'Assessment plan needs revision',
+          body: `Your plan "${input.planName}" needs revision${input.rejectionReason ? `: ${input.rejectionReason}` : '.'}`,
+          data: { submission_id: input.submissionId },
+          is_read: false,
+        })
+      }
+    },
+    onSuccess: (_, vars) => {
+      qc.invalidateQueries({ queryKey: queryKeys.assessments.pendingSubmissions(vars.schoolId) })
     },
   })
 }
