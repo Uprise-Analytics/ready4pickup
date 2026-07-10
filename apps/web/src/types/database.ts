@@ -104,6 +104,7 @@ export interface Child {
   is_active: boolean
   wears_diapers: boolean
   drinks_bottle: boolean
+  parent_whatsapp: string | null
   deleted_at: string | null
   created_by: string | null
   created_at: string

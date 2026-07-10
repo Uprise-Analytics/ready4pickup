@@ -24,6 +24,8 @@ import type {
   AssessmentPlanApprovalStatus,
   PlanSubmission,
   PlanSubmissionWithDetails,
+  ReportCard,
+  ReportSubject,
 } from '@/types/database'
 
 const today = () => format(new Date(), 'yyyy-MM-dd')
@@ -1072,6 +1074,93 @@ export function useCompletionStats(schoolId: string | null, dateFrom: string, da
         .order('session_date', { ascending: false })
       if (error) throw error
       return data ?? []
+    },
+  })
+}
+
+// ── Report Cards ───────────────────────────────────────────────────────────────
+
+export function useChildReportCards(childId: string | null) {
+  return useQuery({
+    queryKey: ['report-cards', 'child', childId ?? ''],
+    enabled: !!childId,
+    staleTime: 30 * 1000,
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('report_cards')
+        .select('*')
+        .eq('child_id', childId!)
+        .order('created_at', { ascending: false })
+      if (error) throw error
+      return (data ?? []) as ReportCard[]
+    },
+  })
+}
+
+export function useSaveReportCard() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: async (input: {
+      childId: string
+      schoolId: string
+      createdBy: string
+      period: string
+      subjects: ReportSubject[]
+      overallComment: string | null
+      publish: boolean
+    }) => {
+      const { data: existing } = await supabase
+        .from('report_cards')
+        .select('id')
+        .eq('child_id', input.childId)
+        .eq('period', input.period)
+        .maybeSingle()
+
+      const payload: Record<string, unknown> = {
+        child_id: input.childId,
+        school_id: input.schoolId,
+        created_by: input.createdBy,
+        period: input.period,
+        subjects: input.subjects,
+        overall_comment: input.overallComment,
+        is_published: input.publish,
+      }
+      if (input.publish) payload.published_at = new Date().toISOString()
+
+      let card: ReportCard
+      if (existing?.id) {
+        const { data, error } = await supabase
+          .from('report_cards').update(payload).eq('id', existing.id).select().single()
+        if (error) throw error
+        card = data as ReportCard
+      } else {
+        const { data, error } = await supabase
+          .from('report_cards').insert(payload).select().single()
+        if (error) throw error
+        card = data as ReportCard
+      }
+
+      if (input.publish) {
+        const { data: parents } = await supabase
+          .from('parent_child_links').select('parent_id').eq('child_id', input.childId)
+        if (parents && parents.length > 0) {
+          await supabase.from('notifications').insert(
+            parents.map((p: any) => ({
+              user_id: p.parent_id,
+              school_id: input.schoolId,
+              type: 'report_card_published',
+              title: 'Report Card Published',
+              body: `${input.period} report card is now available.`,
+              data: { child_id: input.childId, report_card_id: card.id },
+              is_read: false,
+            }))
+          )
+        }
+      }
+      return card
+    },
+    onSuccess: (data) => {
+      qc.invalidateQueries({ queryKey: ['report-cards', 'child', data.child_id] })
     },
   })
 }

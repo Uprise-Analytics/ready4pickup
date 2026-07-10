@@ -96,9 +96,9 @@ export function useUpdateChild() {
       id: string; schoolId: string; firstName?: string; lastName?: string
       classroom?: string | null; classroomId?: string | null; grade?: string | null
       allergies?: string[]; medicalNotes?: string | null; isActive?: boolean
-      wearsDiapers?: boolean; drinksBottle?: boolean
+      wearsDiapers?: boolean; drinksBottle?: boolean; parentWhatsapp?: string | null
     }) => {
-      const { id, schoolId, firstName, lastName, classroom, classroomId, grade, allergies, medicalNotes, isActive, wearsDiapers, drinksBottle } = input
+      const { id, schoolId, firstName, lastName, classroom, classroomId, grade, allergies, medicalNotes, isActive, wearsDiapers, drinksBottle, parentWhatsapp } = input
       const updates: Record<string, unknown> = {}
       if (firstName !== undefined) updates.first_name = firstName
       if (lastName !== undefined) updates.last_name = lastName
@@ -110,6 +110,7 @@ export function useUpdateChild() {
       if (isActive !== undefined) updates.is_active = isActive
       if (wearsDiapers !== undefined) updates.wears_diapers = wearsDiapers
       if (drinksBottle !== undefined) updates.drinks_bottle = drinksBottle
+      if (parentWhatsapp !== undefined) updates.parent_whatsapp = parentWhatsapp
 
       const { data, error } = await db.children().update(updates).eq('id', id).select().single()
       if (error) throw error
